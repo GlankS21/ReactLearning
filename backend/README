@@ -1,0 +1,5 @@
+bật ssh-tunnel: ssh -L 0.0.0.0:5555:localhost:5432 s345124@helios.cs.ifmo.ru -p 2222
+pass: REyX=5479
+
+# Lớp models: chỉ giao tiếp với database
+# Lớp controllers: nhận request từ routes
