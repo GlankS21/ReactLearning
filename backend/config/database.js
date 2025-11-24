@@ -1,16 +1,22 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// const pool = new Pool({
+//   host: process.env.DB_HOST || 'localhost',
+//   port: process.env.DB_PORT || 5432,
+//   database: process.env.DB_NAME || 'studs',
+//   user: process.env.DB_USER || 's345124',
+//   password: process.env.DB_PASSWORD,
+//   max: 20,
+//   idleTimeoutMillis: 30000,
+//   connectionTimeoutMillis: 2000,
+// })
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'studs',
-  user: process.env.DB_USER || 's345124',
-  password: process.env.DB_PASSWORD,
+  connectionString: process.env.DB_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-})
+});
 
 pool.on('connect', () => {
   console.log('Connected');
