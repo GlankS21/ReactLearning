@@ -10,42 +10,6 @@ export const WrapperSettingsContent = styled.div`
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 `
 
-export const WrapperSettingsHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 15px;
-
-  h2 {
-    margin: 0;
-    font-size: 28px;
-    color: white;
-  }
-`
-
-export const WrapperCloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 32px;
-  cursor: pointer;
-  color: #666;
-  padding: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #f0f0f0;
-    color: #333;
-  }
-`
-
 export const WrapperSettingsSection = styled.div`
   margin-bottom: 30px;
 
@@ -56,46 +20,11 @@ export const WrapperSettingsSection = styled.div`
   }
 `
 
-export const WrapperAvatarGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-`
-
-export const WrapperAvatarOption = styled.button`
-  background: none !important;
-  font-size: 32px;
-  padding: 15px;
-  border: 3px solid ${(props) => (props.isSelected ? "#4CAF50" : "#ddd")};
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    transform: scale(1.1);
-    border-color: #4CAF50;
-  }
-`
-
 export const WrapperRulesAccordion = styled.div`
   border: 2px solid #ddd;
   border-radius: 12px;
   overflow: hidden;
 `
-
-export const WrapperRulesTitle = styled.div`
-  padding: 15px 20px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  color: #eee;
-`
-
 export const WrapperRulesContent = styled.div`
   padding: 20px;
 

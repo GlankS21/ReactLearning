@@ -91,24 +91,4 @@ router.post('/signin', authController.signin.bind(authController));
  */
 router.post('/signout', authController.signout.bind(authController));
 
-// /**
-//  * @swagger
-//  * /api/auth/profile:
-//  *   get:
-//  *     summary: Get user profile
-//  *     tags: [Authentication]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     responses:
-//  *       200:
-//  *         description: User profile
-//  *       401:
-//  *         description: Unauthorized
-//  *       404:
-//  *         description: User not found
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/profile', authMiddleware, authController.getProfile.bind(authController));
-
 module.exports = router;

@@ -23,13 +23,11 @@ export const WrapperCell = styled.div`
   border-bottom: none;
 
   background-color: ${(props) => {
-    // Nếu là ô bắt đầu -> ưu tiên màu riêng
     if (props.startColor === "yellow") return "#FFD700"
     if (props.startColor === "blue") return "#1E90FF"
     if (props.startColor === "green") return "#32CD32"
     if (props.startColor === "red") return "#FF4444"
 
-    // Nếu không phải ô bắt đầu -> dùng màu theo cellType
     if (props.cellType === 0) return "transparent"
     if (props.cellType === 1) return "white"
     if (props.cellType === 2) return "#FFD700"
@@ -252,5 +250,66 @@ export const WrapperCenterTriangle = styled.div`
         `
       }
     }}
+  }
+`
+
+export const WrapperHorse = styled.div`
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: ${(props) => props.color};
+  border: ${(props) => props.borderWidth} solid ${(props) => props.borderColor};
+  cursor: ${(props) => props.cursor};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transform: ${(props) => props.transform};
+  transition: all 0.2s;
+  opacity: ${(props) => props.opacity};
+  z-index: 10;
+  pointer-events: ${(props) => props.pointerEvents};
+
+  @media (max-width: 768px) {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 480px) {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+`
+
+export const WrapperHomeHorse = styled.div`
+  height: 36px;
+  width: 36px;
+  border-radius: 50%;
+  background-color: ${(props) => props.color};
+  border: ${(props) => props.borderWidth} solid ${(props) => props.borderColor};
+  cursor: ${(props) => props.cursor};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+  opacity: ${(props) => props.opacity};
+  transform: ${(props) => props.transform};
+
+  @media (max-width: 768px) {
+    height: 32px;
+    width: 32px;
+    font-size: 16px;
+  }
+
+  @media (max-width: 480px) {
+    height: 28px;
+    width: 28px;
+    font-size: 14px;
   }
 `

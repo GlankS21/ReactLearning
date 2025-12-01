@@ -1,13 +1,15 @@
 const { pool } = require('../config/database');
-const { LudoGameLogic: GameLogic, START_CELLS, HOME_RANGES} = require('../service/LudoGameLogic');
+const { LudoGameLogic: GameLogic, START_CELLS, HOME_RANGES, FINISH_CELLS } = require('../service/LudoGameLogic');
 
 class Game {
   static async getGameById(game_id) {
-    const { rows } = await pool.query('SELECT * FROM games WHERE game_id = $1', [game_id]); return rows[0] ?? null;
+    const { rows } = await pool.query('SELECT * FROM games WHERE game_id = $1', [game_id]);
+    return rows[0] ?? null;
   }
 
   static async getPlayer(game_id, login) {
-    const { rows } = await pool.query('SELECT * FROM player WHERE game_id = $1 AND login = $2', [game_id, login]); return rows[0] ?? null;
+    const { rows } = await pool.query('SELECT * FROM player WHERE game_id = $1 AND login = $2', [game_id, login]);
+    return rows[0] ?? null;
   }
 
   static async getHorse(horse_id, game_id) {
@@ -21,15 +23,15 @@ class Game {
 
   static async getPendingDice(player_id) {
     const { rows } = await pool.query(`
-      SELECT * FROM dice WHERE player_id = $1 AND roll_used = false
-      ORDER BY endtime DESC LIMIT 1
+      SELECT * FROM dice WHERE player_id = $1 AND roll_used = false LIMIT 1
     `, [player_id]);
     return rows[0] ?? null;
   }
 
   static async getAllPlayers(game_id) {
     const { rows } = await pool.query(
-      'SELECT login, player_id, color, player_number FROM player WHERE game_id = $1 ORDER BY player_number', [game_id]
+      'SELECT login, player_id, color, player_number FROM player WHERE game_id = $1 ORDER BY player_number', 
+      [game_id]
     );
     return rows;
   }
@@ -45,15 +47,15 @@ class Game {
 
   static async startGame(game_id, login) {
     const game = await this.getGameById(game_id);
-    if (!game) return { success: false, code: 404, message: 'Игра не найдена' };
-    if (game.status === 'started') return { success: false, code: 400, message: 'Игра уже началась' };
+    if (!game) return { success: false, code: 404, message: 'Game not found' };
+    if (game.status === 'started') return { success: false, code: 400, message: 'Game already started' };
 
     const player = await this.getPlayer(game_id, login);
-    if (!player) return { success: false, code: 403, message: 'Вас нет в этой игре' };
+    if (!player) return { success: false, code: 403, message: 'Player not in game' };
 
     const players = await this.getAllPlayers(game_id);
     if (players.length < game.player_amount) {
-      return { success: false, code: 400, message: `Недостаточно игроков: ${players.length}/${game.player_amount}` };
+      return { success: false, code: 400, message: `Not enough players: ${players.length}/${game.player_amount}` };
     }
 
     await pool.query(
@@ -61,18 +63,11 @@ class Game {
       ['started', players[0].login, game_id]
     );
 
-    // Clear dice
-    await pool.query(
-      'DELETE FROM dice WHERE player_id = ANY($1::int[])',
-      [players.map(p => p.player_id)]
-    );
+    await pool.query('DELETE FROM dice WHERE player_id = ANY($1::int[])', [players.map(p => p.player_id)]);
 
-    // 🔥 Tạo marker dice cho người chơi đầu tiên (start_time = NOW())
-    const firstPlayer = players[0];
     await pool.query(
-      `INSERT INTO dice (player_id, number, roll_used, endtime) 
-       VALUES ($1, 0, true, NOW())`,
-      [firstPlayer.player_id]
+      `INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, 0, true, NOW())`,
+      [players[0].player_id]
     );
 
     return {
@@ -80,7 +75,6 @@ class Game {
       code: 200,
       data: {
         game_id,
-        player_amount: game.player_amount,
         players: players.map(p => ({ player_id: p.player_id, login: p.login, color: p.color })),
         current_turn_player_login: players[0].login
       }
@@ -93,29 +87,30 @@ class Game {
       await client.query('BEGIN');
 
       const game = await this.getGameById(game_id);
-      if (!game) throw { code: 404, message: 'Игра не найдена' };
-      if (login !== game.current_turn_player_login) throw { code: 403, message: 'Не ваша очередь' };
+      if (!game) throw { code: 404, message: 'Game not found' };
+      if (login !== game.current_turn_player_login) throw { code: 403, message: 'Not your turn' };
 
       const player = await this.getPlayer(game_id, login);
-      if (!player) throw { code: 404, message: 'Игрок не найден' };
+      if (!player) throw { code: 404, message: 'Player not found' };
 
       const pendingDice = await this.getPendingDice(player.player_id);
-      if (pendingDice) throw { code: 400, message: 'Вы должны переместить лошадь, прежде чем снова кататься' };
+      if (pendingDice) throw { code: 400, message: 'Move horse first' };
 
       const roll = Math.floor(Math.random() * 6) + 1;
-      await client.query('INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, $2, false, NULL)', [player.player_id, roll]
+      await client.query('INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, $2, false, NULL)', 
+        [player.player_id, roll]
       );
 
       await client.query('COMMIT');
       return {
         success: true,
         code: 200,
-        data: { roll, player_login: login, message: roll === 6 ? 'Вы выбросили 6! Бросьте еще раз после перемещения' : 'Двигайте лошадь' }
+        data: { roll, player_login: login }
       };
 
     } catch (err) {
       await client.query('ROLLBACK');
-      return { success: false, code: err.code || 500, message: err.message || 'Не удалось бросить кости' };
+      return { success: false, code: err.code || 500, message: err.message };
     } finally {
       client.release();
     }
@@ -124,7 +119,7 @@ class Game {
   static async getGameState(game_id) {
     try {
       const game = await this.getGameById(game_id);
-      if (!game) return { success: false, code: 404, message: 'Игра не найдена' };
+      if (!game) return { success: false, code: 404, message: 'Game not found' };
 
       const players = await this.getAllPlayers(game_id);
       let remaining_time = game.step_time;
@@ -132,7 +127,6 @@ class Game {
       if (game.current_turn_player_login) {
         const playerWithTurn = players.find(p => p.login === game.current_turn_player_login);
         if (playerWithTurn) {
-          // 🔥 Lấy marker dice (number = 0, roll_used = true) - đây là start_time
           const dice = await pool.query(`
             SELECT endtime FROM dice 
             WHERE player_id = $1 AND number = 0 AND roll_used = true 
@@ -140,8 +134,7 @@ class Game {
           `, [playerWithTurn.player_id]);
           
           if (dice.rows[0]?.endtime) {
-            const startTime = new Date(dice.rows[0].endtime);
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const elapsed = Math.floor((Date.now() - new Date(dice.rows[0].endtime)) / 1000);
             remaining_time = Math.max(game.step_time - elapsed, 0);
           }
         }
@@ -150,7 +143,10 @@ class Game {
       const horsesRows = await this.getAllHorses(game_id);
       const horsesByPlayer = {};
       players.forEach(p => horsesByPlayer[p.player_id] = []);
-      horsesRows.forEach(h => horsesByPlayer[h.player_id].push({ horse_id: h.horse_id, cell_number: h.cell_id ?? -1 }));
+      horsesRows.forEach(h => horsesByPlayer[h.player_id].push({ 
+        horse_id: h.horse_id, 
+        cell_number: h.cell_id ?? -1 
+      }));
 
       return {
         success: true,
@@ -171,30 +167,28 @@ class Game {
         }
       };
     } catch (err) {
-      return { success: false, code: 500, message: 'Не удалось получить состояние игры', error: err.message };
+      return { success: false, code: 500, message: 'Failed to get game state' };
     }
   }
 
-  // --- Move horse ---
   static async moveHorse(game_id, horse_id, login) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       const game = await this.getGameById(game_id);
-      if (!game) throw { code: 404, message: 'Игра не найдена' };
-      if (login !== game.current_turn_player_login) throw { code: 403, message: 'Не твой очередь' };
+      if (!game) throw { code: 404, message: 'Game not found' };
+      if (login !== game.current_turn_player_login) throw { code: 403, message: 'Not your turn' };
 
       const horse = await this.getHorse(horse_id, game_id);
-      if (!horse) throw { code: 404, message: 'Horse not found in this game' };
+      if (!horse) throw { code: 404, message: 'Horse not found' };
 
       const dice = await this.getPendingDice(horse.player_id);
-      if (!dice) throw { code: 400, message: 'You must roll dice first' };
+      if (!dice) throw { code: 400, message: 'Roll dice first' };
 
       const diceRoll = dice.number;
       const currentCell = horse.cell_id ?? -1;
       
-      // 🔥 Calculate new cell
       let newCell;
       if (currentCell === -1) {
         newCell = START_CELLS[horse.color] + diceRoll;
@@ -202,61 +196,45 @@ class Game {
         newCell = GameLogic.moveHorse(currentCell, horse.color, diceRoll);
       }
 
-     // Lấy home range theo màu
       const home = HOME_RANGES[horse.color];
-
-      // Nếu ngựa đang trong vùng home
-      if (currentCell >= home.start) {
-        // và bước di chuyển vượt quá END
-        if (newCell > home.end) {
-          throw { code: 400, message: 'Ngựa không thể di chuyển quá vị trí kết thúc' };
-        }
+      if (currentCell >= home.start && newCell > home.end) {
+        throw { code: 400, message: 'Cannot move beyond finish' };
       }
 
-
-      // 🔥 If horse didn't move (newCell === currentCell), it's invalid
       if (newCell === currentCell && currentCell !== -1) {
-        throw { code: 400, message: 'Ngựa không thể di chuyển' };
+        throw { code: 400, message: 'Invalid move' };
       }
 
-      // Capture
       const allHorses = await this.getAllHorses(game_id);
       const captured = GameLogic.checkCapture(newCell, horse.color, allHorses);
       if (captured) await client.query('UPDATE horses SET cell_id = -1 WHERE horse_id = $1', [captured.horse_id]);
 
-      // Update horse
       await client.query('UPDATE horses SET cell_id = $1 WHERE horse_id = $2', [newCell, horse_id]);
 
-      // Finish
       const finished = GameLogic.isFinished(newCell, horse.color);
 
-      // 🔥 Mark dice used AND set endtime NOW (when move is made)
-      const updateDice = await client.query(
-        'UPDATE dice SET roll_used = true, endtime = NOW() WHERE player_id = $1 AND roll_used = false RETURNING *', 
+      await client.query(
+        'UPDATE dice SET roll_used = true, endtime = NOW() WHERE player_id = $1 AND roll_used = false', 
         [horse.player_id]
       );
-      if (updateDice.rowCount === 0) throw { code: 400, message: 'Кости не найдены после хода' };
 
-      // Next turn
       let nextTurnLogin = game.current_turn_player_login;
       if (diceRoll !== 6) {
         const playerLogins = (await this.getAllPlayers(game_id)).map(p => p.login);
         const idx = playerLogins.indexOf(game.current_turn_player_login);
         nextTurnLogin = playerLogins[(idx + 1) % playerLogins.length];
-        await client.query('UPDATE games SET current_turn_player_login = $1 WHERE game_id = $2', [nextTurnLogin, game_id]);
+        await client.query('UPDATE games SET current_turn_player_login = $1 WHERE game_id = $2', 
+          [nextTurnLogin, game_id]
+        );
         
-        // 🔥 Lấy next player
         const nextPlayer = await client.query(
           'SELECT player_id FROM player WHERE game_id = $1 AND login = $2',
           [game_id, nextTurnLogin]
         );
         if (nextPlayer.rows[0]) {
-          // 🔥 Xóa dice cũ
           await client.query('DELETE FROM dice WHERE player_id = $1', [nextPlayer.rows[0].player_id]);
-          
           await client.query(
-            `INSERT INTO dice (player_id, number, roll_used, endtime) 
-             VALUES ($1, 0, true, NOW())`,
+            `INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, 0, true, NOW())`,
             [nextPlayer.rows[0].player_id]
           );
         }
@@ -273,48 +251,39 @@ class Game {
           captured: captured ? captured.horse_id : null,
           finished,
           canRollAgain: diceRoll === 6,
-          nextTurnPlayerLogin: nextTurnLogin,
-          turnMessage: diceRoll === 6 ? 'Вы выбросили 6! Снова ваш ход' : 'Ход выполнен. Ход следующего игрока'
+          nextTurnPlayerLogin: nextTurnLogin
         }
       };
     } catch (err) {
       await client.query('ROLLBACK');
-      return { success: false, code: err.code || 500, message: err.message || 'Не удалось переместить лошадь', error: err.error };
+      return { success: false, code: err.code || 500, message: err.message };
     } finally {
       client.release();
     }
   }
 
   static async checkWinner(game_id) {
-    const { rows: playerCountRows } = await pool.query(
-      'SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id]
-    );
-    const playerCount = parseInt(playerCountRows[0].count);
-
-    if (playerCount === 1) {
-      const { rows: winnerRows } = await pool.query(
-        'SELECT login, color FROM player WHERE game_id = $1', [game_id]
-      );
-      if (winnerRows.length > 0) {
-        return { winner: winnerRows[0].color, winner_login: winnerRows[0].login, reason: 'only_player_left' };
-      }
+    const playerCount = await pool.query('SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id]);
+    
+    if (parseInt(playerCount.rows[0].count) === 1) {
+      const winner = await pool.query('SELECT color FROM player WHERE game_id = $1', [game_id]);
+      return winner.rows[0] ? { winner: winner.rows[0].color } : { winner: null };
     }
 
-    const { rows: horses } = await pool.query(`
-      SELECT h.cell_id, p.color
-      FROM horses h
+    const horses = await pool.query(`
+      SELECT h.cell_id, p.color FROM horses h
       JOIN player p ON h.player_id = p.player_id
       WHERE p.game_id = $1
     `, [game_id]);
 
     const winners = {};
-    horses.forEach(h => {
+    horses.rows.forEach(h => {
       if (!winners[h.color]) winners[h.color] = 0;
-      if (h.cell_id === 57) winners[h.color]++;
+      if (h.cell_id === FINISH_CELLS[h.color]) winners[h.color]++;
     });
 
     const winnerColor = Object.entries(winners).find(([_, count]) => count === 4)?.[0] || null;
-    return { winner: winnerColor || null };
+    return { winner: winnerColor };
   }
 
   static async leaveGame(game_id, login) {
@@ -322,21 +291,19 @@ class Game {
     try {
       await client.query('BEGIN');
 
-      const { rows: playerRows } = await client.query(
+      const player = await client.query(
         'SELECT player_id FROM player WHERE game_id = $1 AND login = $2',
         [game_id, login]
       );
-      if (playerRows.length === 0) throw { code: 404, message: 'Player not found' };
-      const player_id = playerRows[0].player_id;
+      if (player.rows.length === 0) throw { code: 404, message: 'Player not found' };
+      const player_id = player.rows[0].player_id;
 
       await client.query('DELETE FROM dice WHERE player_id = $1', [player_id]);
       await client.query('DELETE FROM horses WHERE player_id = $1', [player_id]);
       await client.query('DELETE FROM player WHERE player_id = $1', [player_id]);
 
-      const { rows: remainingRows } = await client.query(
-        'SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id]
-      );
-      const remainingCount = parseInt(remainingRows[0].count);
+      const remaining = await client.query('SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id]);
+      const remainingCount = parseInt(remaining.rows[0].count);
 
       if (remainingCount === 0) {
         await client.query('DELETE FROM cells WHERE game_id = $1', [game_id]);
@@ -353,12 +320,10 @@ class Game {
     }
   }
 
-static async passMove(game_id, login) {
+  static async passMove(game_id, login) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      
-      // 🔥 Use transaction isolation level to prevent race conditions
       await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
       
       const game = await this.getGameById(game_id);
@@ -368,58 +333,33 @@ static async passMove(game_id, login) {
       const player = await this.getPlayer(game_id, login);
       if (!player) throw { code: 404, message: 'Player not found' };
 
-      // 🔥 Xóa dice không sử dụng (roll_used = false)
-      await client.query(
-        `DELETE FROM dice WHERE player_id = $1 AND roll_used = false`,
-        [player.player_id]
-      );
+      await client.query('DELETE FROM dice WHERE player_id = $1 AND roll_used = false', [player.player_id]);
 
-      // Lấy danh sách người chơi
-      const playersResult = await client.query(
+      const players = await client.query(
         'SELECT login, player_id FROM player WHERE game_id = $1 ORDER BY player_number',
         [game_id]
       );
-      const players = playersResult.rows;
       
-      if (players.length === 0) throw { code: 400, message: 'No players in game' };
+      if (players.rows.length === 0) throw { code: 400, message: 'No players' };
 
-      const idx = players.findIndex(p => p.login === game.current_turn_player_login);
-      if (idx === -1) throw { code: 400, message: 'Current player not found' };
-      
-      const nextPlayer = players[(idx + 1) % players.length];
-      const nextTurnPlayerLogin = nextPlayer.login;
+      const idx = players.rows.findIndex(p => p.login === login);
+      const nextPlayer = players.rows[(idx + 1) % players.rows.length];
 
-      // 🔥 Update current_turn_player_login và lock game row
       const updateResult = await client.query(
-        `UPDATE games 
-         SET current_turn_player_login = $1 
-         WHERE game_id = $2 AND current_turn_player_login = $3
-         RETURNING *`,
-        [nextTurnPlayerLogin, game_id, login]
+        `UPDATE games SET current_turn_player_login = $1 WHERE game_id = $2 AND current_turn_player_login = $3 RETURNING *`,
+        [nextPlayer.login, game_id, login]
       );
       
-      // 🔥 Verify update was successful (prevent race condition)
-      if (updateResult.rowCount === 0) {
-        throw { code: 409, message: 'Turn changed by another process, please refresh' };
-      }
+      if (updateResult.rowCount === 0) throw { code: 409, message: 'Turn changed' };
 
-      // 🔥 Xóa dice cũ của người chơi tiếp theo
       await client.query('DELETE FROM dice WHERE player_id = $1', [nextPlayer.player_id]);
-
-      // 🔥 Tạo marker dice mới với start_time = NOW()
       await client.query(
-        `INSERT INTO dice (player_id, number, roll_used, endtime) 
-         VALUES ($1, 0, true, NOW())`,
+        `INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, 0, true, NOW())`,
         [nextPlayer.player_id]
       );
 
       await client.query('COMMIT');
-
-      return { 
-        success: true,
-        nextTurnPlayerLogin,
-        message: `Turn passed to ${nextTurnPlayerLogin}`
-      };
+      return { success: true, nextTurnPlayerLogin: nextPlayer.login };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

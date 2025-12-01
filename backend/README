@@ -3,3 +3,9 @@ pass: REyX=5479
 
 # Lớp models: chỉ giao tiếp với database
 # Lớp controllers: nhận request từ routes
+
+DB_HOST=localhost
+DB_PORT=5555
+DB_NAME=studs
+DB_USER=s345124
+DB_PASSWORD=qm0ghr6oVu3vPs8J

@@ -12,7 +12,7 @@ require('dotenv').config();
 //   connectionTimeoutMillis: 2000,
 // })
 const pool = new Pool({
-  connectionString: process.env.DB_URL,
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
