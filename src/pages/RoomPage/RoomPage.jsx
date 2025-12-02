@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import roomAPI from "../../api/roomAPI";
+import gameAPI from "../../api/gameAPI";
 import {
   WrapperContainer,
   WrapperBackButton,
@@ -14,9 +16,6 @@ import {
   WrapperLeaveButton,
 } from "./style";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
-
 
 const ErrorModal = ({ message, onClose }) => {
   return (
@@ -74,31 +73,24 @@ const RoomPage = () => {
   const [error, setError] = useState(null);
 
   const intervalRef = useRef(null);
-  const lastPlayerCountRef = useRef(0);
 
   const fetchRoomDetails = async () => {
-    const token = localStorage.getItem("authToken");
     const login = localStorage.getItem("login");
 
-    if (!token) {
+    if (!login) {
       navigate("/waiting?players=2");
       return;
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/room/${gameId}/players`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
+      const response = await roomAPI.getRoomPlayers(gameId);
+      
+      if (!response.success) {
         navigate("/waiting");
         return;
       }
 
-      const playerList = data.data.players || [];
+      const playerList = response.data.players || [];
       const isInRoom = playerList.some(p => p.login === login);
 
       if (!isInRoom) {
@@ -108,19 +100,20 @@ const RoomPage = () => {
       }
 
       setRoom({
-        game_id: data.data.game_id,
-        player_amount: data.data.max_players,
-        step_time: data.data.step_time || 30,
+        game_id: response.data.game_id,
+        player_amount: response.data.max_players,
+        step_time: response.data.step_time || 30,
+        status: response.data.status,
       });
       setPlayers(playerList);
       setIsCreator(playerList[0]?.login === login);
-      lastPlayerCountRef.current = playerList.length;
 
-      if (data.data.status === "started") {
+      if (response.data.status === "started") {
         navigate(`/gameplay?gameId=${gameId}`);
       }
     } catch (err) {
       setError("Ошибка загрузки комнаты");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -142,14 +135,12 @@ const RoomPage = () => {
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const token = localStorage.getItem("authToken");
       const login = localStorage.getItem("login");
+      if (!gameId || !login) return;
 
-      if (!gameId || !login || !token) return;
-
-      const data = JSON.stringify({ game_id: gameId, login });
-      const blob = new Blob([data], { type: "application/json" });
-      navigator.sendBeacon(`${API_URL}/api/room/leave`, blob);
+      try {
+        roomAPI.leaveRoom(gameId, login).catch(() => {});
+      } catch (err) {}
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -158,27 +149,17 @@ const RoomPage = () => {
 
   const handleLeaveRoom = async () => {
     try {
-      const token = localStorage.getItem("authToken");
       const login = localStorage.getItem("login");
-
       if (intervalRef.current) clearInterval(intervalRef.current);
 
-      await fetch(`${API_URL}/api/room/leave`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ game_id: gameId, login }),
-      });
-
+      await roomAPI.leaveRoom(gameId, login);
       navigate("/ludohome");
     } catch (err) {
       setError("Ошибка при выходе из комнаты");
+      console.error(err);
     }
   };
 
-  // Start game
   const handleStartGame = async () => {
     if (players.length < room.player_amount) {
       setError(`Требуется ${room.player_amount} игроков. Сейчас: ${players.length}`);
@@ -186,27 +167,17 @@ const RoomPage = () => {
     }
 
     try {
-      const token = localStorage.getItem("authToken");
+      const response = await gameAPI.startGame(gameId);
 
-      const response = await fetch(`${API_URL}/api/game/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ game_id: gameId }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.success) {
         if (intervalRef.current) clearInterval(intervalRef.current);
         navigate(`/gameplay?gameId=${gameId}`);
       } else {
-        setError(data.message || "Невозможно начать игру");
+        setError(response.message || "Невозможно начать игру");
       }
     } catch (err) {
       setError("Ошибка подключения");
+      console.error(err);
     }
   };
 

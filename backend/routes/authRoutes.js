@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
+// thêm token cho register
+
 /**
  * @swagger
  * /api/auth/signup:

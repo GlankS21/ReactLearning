@@ -131,7 +131,11 @@ class RoomController {
       for (let i = 0; i < 4; i++) {
         await client.query( `INSERT INTO horses (player_id, cell_id) VALUES ($1, $2)`, [player_id, -1]);
       }
+      
+      // const Game = require('../models/Game');
+      // await Game.startGame(game_id);
       await client.query('COMMIT');
+      
       return res.status(200).json({
         success: true,
         message: 'Присоединились к комнате успешно',

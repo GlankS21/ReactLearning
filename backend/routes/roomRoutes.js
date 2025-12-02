@@ -55,6 +55,8 @@ router.post('/create', (req, res) => {roomController.createRoom(req, res);});
  */
 router.get('/list', (req, res) => { roomController.listRooms(req, res);});
 
+
+// join xóa token
 /**
  * @swagger
  * /api/room/join:

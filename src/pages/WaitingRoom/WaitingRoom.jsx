@@ -1,36 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import roomAPI from "../../api/roomAPI";
 import * as style from "./style";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
-
-const apiRequest = async (endpoint, options = {}) => {
-  const token = localStorage.getItem("authToken");
-
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const config = {
-    ...options,
-    headers,
-  };
-
-  const response = await fetch(`${API_URL}${endpoint}`, config);
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Request failed');
-  }
-
-  return response.json();
-};
 
 const WaitingRoom = () => {
   const navigate = useNavigate();
@@ -46,9 +18,9 @@ const WaitingRoom = () => {
 
   const fetchRooms = async () => {
     try {
-      const data = await apiRequest('/api/room/list');
-      if (data.success && Array.isArray(data.data?.games)) {
-        setRooms(data.data.games);
+      const response = await roomAPI.listRooms();
+      if (response.success && Array.isArray(response.data?.games)) {
+        setRooms(response.data.games);
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
@@ -57,7 +29,6 @@ const WaitingRoom = () => {
     }
   };
 
-  // ⏱️ Polling mỗi 1 giây
   useEffect(() => {
     fetchRooms();
     intervalRef.current = setInterval(fetchRooms, 1000);
@@ -76,10 +47,7 @@ const WaitingRoom = () => {
         return;
       }
 
-      const response = await apiRequest('/api/room/join', {
-        method: "POST",
-        body: JSON.stringify({ game_id: roomId }),
-      });
+      const response = await roomAPI.joinRoom(roomId);
 
       if (response.success) {
         if (intervalRef.current) clearInterval(intervalRef.current);
@@ -102,13 +70,7 @@ const WaitingRoom = () => {
         return;
       }
 
-      const response = await apiRequest('/api/room/create', {
-        method: "POST",
-        body: JSON.stringify({
-          player_amount: parseInt(numPlayers),
-          step_time: parseInt(timePerMove),
-        }),
-      });
+      const response = await roomAPI.createRoom(parseInt(numPlayers), parseInt(timePerMove));
 
       if (response.success) {
         const gameId = response.data.game_id;

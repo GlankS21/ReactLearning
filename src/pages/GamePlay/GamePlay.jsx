@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import gameAPI from "../../api/gameAPI";
+import roomAPI from "../../api/roomAPI";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
 import BoardGameComponent from "../../components/BoardGameComponent/BoardGameComponent";
 import {
@@ -16,12 +18,10 @@ import {
   WrapperDiceDot,
 } from "./style";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-
 const GamePlay = () => {
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
-  const gameId = searchParams.get("gameId");
+  const gameId = parseInt(searchParams.get("gameId"));
   const myLogin = localStorage.getItem("login");
 
   const [showExit, setShowExit] = useState(false);
@@ -39,47 +39,25 @@ const GamePlay = () => {
   const isAutoPassingRef = useRef(false);
   const lastAutoPassTimeRef = useRef(0);
 
-  // API Helper
-  const makeRequest = useCallback(async (method, endpoint, data = null) => {
-    try {
-      const headers = { 'Content-Type': 'application/json',};
-      const token = localStorage.getItem('authToken');
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const config = { method, headers,};
-
-      if (data && (method === 'POST' || method === 'PUT')) config.body = JSON.stringify(data);
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message);
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (err) {
-      throw err;
-    }
-  }, []);
-
   // Fetch game state
   const fetchGameState = useCallback(async () => {
     if (!gameId) return;
 
     try {
-      const response = await makeRequest('GET', `/game/${gameId}`);
+      const response = await gameAPI.getGameState(gameId);
       if (!response?.success) return;
       setGameState(response.data);
       setError(null);
-      try {
-        const winnerRes = await makeRequest('GET', `/game/${gameId}/winner`);
-        if (winnerRes?.success && winnerRes.data.winner) setWinner(winnerRes.data.winner);
-      } catch (winnerErr) {}
-    } 
-    catch (err) {
+
+      // ✅ Winner đã có trong response.data
+      if (response.data?.winner) {
+        setWinner(response.data.winner);
+      }
+    } catch (err) {
       setError(err.message);
+      console.error(err);
     }
-  }, [gameId, makeRequest]);
+  }, [gameId]);
 
   // Polling game state
   useEffect(() => {
@@ -97,6 +75,7 @@ const GamePlay = () => {
     };
   }, [gameId, fetchGameState]);
 
+  // Timer logic
   useEffect(() => {
     if (!gameState) return;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -132,45 +111,34 @@ const GamePlay = () => {
         isAutoPassingRef.current = true;
         lastAutoPassTimeRef.current = now;
         
-        makeRequest('POST', `/game/pass`, {
-          game_id: parseInt(gameId)
-        }).then(res => {
-          setDiceRoll(null);
-          return new Promise(resolve => setTimeout(resolve, 500)).then(() => fetchGameState());
-        }).catch(err => {
-          console.error('Auto-pass failed:', err);
-          return new Promise(resolve => setTimeout(resolve, 500)).then(() => fetchGameState());
-        }).finally(() => {
-          isAutoPassingRef.current = false;
-        });
+        gameAPI.passMove(gameId)
+          .then(res => {
+            setDiceRoll(null);
+            return new Promise(resolve => setTimeout(resolve, 500)).then(() => fetchGameState());
+          })
+          .catch(err => {
+            console.error('Auto-pass failed:', err);
+            return new Promise(resolve => setTimeout(resolve, 500)).then(() => fetchGameState());
+          })
+          .finally(() => {
+            isAutoPassingRef.current = false;
+          });
       }
     }, 1000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [gameState?.players.find(p => p.is_turn)?.player_id, gameId, makeRequest, fetchGameState]);
+  }, [gameState?.players.find(p => p.is_turn)?.player_id, gameId, fetchGameState]);
 
+  // Handle before unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (!gameId || !myLogin) return;
       
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE_URL}/api/room/leave`, false);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
-      
       try {
-        xhr.send(JSON.stringify({ 
-          game_id: parseInt(gameId),
-          login: myLogin 
-        }));
-      } catch (err) {
-      }
+        roomAPI.leaveRoom(gameId, myLogin).catch(() => {});
+      } catch (err) {}
     };
     
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -180,13 +148,12 @@ const GamePlay = () => {
     };
   }, [gameId, myLogin]);
 
+  // Roll dice
   const handleRollDice = useCallback(async () => {
     if (loading || !gameState) return;
     try {
       setLoading(true);
-      const response = await makeRequest('POST', '/game/roll', { 
-        game_id: parseInt(gameId) 
-      });
+      const response = await gameAPI.rollDice(gameId);
       
       if (response?.success) {
         setDiceRoll(response.data.roll);
@@ -195,26 +162,24 @@ const GamePlay = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         await fetchGameState();
       } else {
-        const errorMsg = response?.message ;
+        const errorMsg = response?.message;
         setError(errorMsg);
       }
     } catch (err) {
       setError(err.message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [gameId, gameState, myLogin, diceRoll, loading, makeRequest, fetchGameState]);
+  }, [gameId, gameState, loading, fetchGameState]);
 
-  // --- Move Horse
+  // Move horse
   const handleMoveHorse = useCallback(async (horseId) => {
     if (isMoving || !gameState || !diceRoll) return false;
     setIsMoving(true);
     setError(null);
     try {
-      const response = await makeRequest('POST', '/game/move', {
-        game_id: parseInt(gameId),
-        horse_id: horseId
-      });
+      const response = await gameAPI.moveHorse(gameId, horseId);
 
       if (response?.success) {
         setDiceRoll(null);
@@ -222,13 +187,7 @@ const GamePlay = () => {
         
         await new Promise(resolve => setTimeout(resolve, 500));
         await fetchGameState();
-
-        try {
-          const winnerRes = await makeRequest('GET', `/game/${gameId}/winner`);
-          if (winnerRes?.success && winnerRes.data.winner) {
-            setWinner(winnerRes.data.winner);
-          }
-        } catch (e) {}
+        // ✅ Winner check đã gồm trong fetchGameState
 
         setIsMoving(false);
         return true;
@@ -239,12 +198,13 @@ const GamePlay = () => {
       }
     } catch (err) {
       setError(err.message);
+      console.error(err);
       setIsMoving(false);
       return false;
     }
-  }, [gameId, isMoving, gameState, myLogin, diceRoll, makeRequest, fetchGameState]);
+  }, [gameId, isMoving, gameState, diceRoll, fetchGameState]);
 
-  // --- Exit
+  // Exit game
   const handleExit = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -252,14 +212,13 @@ const GamePlay = () => {
     lastAutoPassTimeRef.current = 0;
 
     if (gameId && myLogin) {
-      makeRequest('POST', `/room/leave`, {
-        game_id: parseInt(gameId),
-        login: myLogin
-      }).catch(err => {});
+      roomAPI.leaveRoom(gameId, myLogin).catch(err => {
+        console.error(err);
+      });
     }
 
     navigate("/ludohome");
-  }, [navigate, gameId, myLogin, makeRequest]);
+  }, [navigate, gameId, myLogin]);
 
   // Winner screen
   if (winner) {
@@ -294,7 +253,7 @@ const GamePlay = () => {
     );
   }
 
-  // --- Loading screen
+  // Loading screen
   if (!gameState) {
     return (
       <BackgroundComponent opacity={0.95}>

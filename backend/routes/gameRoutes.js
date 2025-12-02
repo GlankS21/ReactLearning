@@ -4,6 +4,8 @@ const router = express.Router();
 const GameController = require('../controllers/GameController');
 const authMiddleware = require('../middleware/authMiddleware');
 
+// start, roll xóa k cần thiết, automatic 
+
 /**
  * @swagger
  * components:
@@ -191,29 +193,6 @@ router.post('/move', authMiddleware, GameController.moveHorse);
  *         description: Ошибка сервера
  */
 router.post('/pass', authMiddleware, GameController.passMove);
-
-/**
- * @swagger
- * /api/game/{game_id}/winner:
- *   get:
- *     summary: Проверить, есть ли победитель
- *     tags: [Game]
- *     parameters:
- *       - name: game_id
- *         in: path
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID игры
- *     responses:
- *       200:
- *         description: Результат проверки победителя
- *       404:
- *         description: Игра не найдена
- *       500:
- *         description: Ошибка сервера
- */
-router.get('/:game_id/winner', GameController.checkWinner);
 
 /**
  * @swagger

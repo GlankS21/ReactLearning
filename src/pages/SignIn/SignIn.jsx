@@ -1,12 +1,10 @@
-"use client"
+import { useState } from "react"
+import authAPI from "../../api/authAPI";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent"
 import ludoBoard from "../../assets/image/ludo board.png"
-import { Form, message } from "antd"
+import { Form } from "antd"
 import { LockOutlined, UserOutlined, ArrowRightOutlined } from "@ant-design/icons"
 import { WrapperButtonFeild, WrapperInputFeild, WrapperPasswordFeild } from "./style"
-import { useState } from "react"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 const SignInPage = () => {
   const [errorMessage, setErrorMessage] = useState("")
@@ -14,27 +12,15 @@ const SignInPage = () => {
   const onFinish = async (values) => {
     try {
       setErrorMessage("")
-      console.log("Fetching from:", `${API_URL}/api/auth/signin`)
 
-      const response = await fetch(`${API_URL}/api/auth/signin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          login: values.username,
-          password: values.password,
-        }),
-      })
+      const response = await authAPI.signin(values.username, values.password);
 
-      const data = await response.json()
-
-      if (data.success) {
-        localStorage.setItem("authToken", data.data.token)
-        localStorage.setItem("login", data.data.login)
+      if (response.success) {
+        localStorage.setItem("authToken", response.data.token)
+        localStorage.setItem("login", response.data.login)
         window.location.href = "/ludohome"
       } else {
-        setErrorMessage(data.message || "Invalid username or password")
+        setErrorMessage(response.message || "Invalid username or password")
       }
     } catch (error) {
       console.error("Sign in error:", error)

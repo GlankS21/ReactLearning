@@ -1,5 +1,5 @@
 const { pool } = require('../config/database');
-const { LudoGameLogic: GameLogic, START_CELLS, HOME_RANGES, FINISH_CELLS } = require('../service/LudoGameLogic');
+const { LudoGameLogic: GameLogic, START_CELLS, HOME_RANGES } = require('../service/LudoGameLogic');
 
 class Game {
   static async getGameById(game_id) {
@@ -148,6 +148,31 @@ class Game {
         cell_number: h.cell_id ?? -1 
       }));
 
+      let winner = null;
+      const playerCount = parseInt((await pool.query('SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id])).rows[0].count);
+      
+      if (playerCount === 1) {
+        const winnerResult = await pool.query('SELECT color FROM player WHERE game_id = $1', [game_id]);
+        winner = winnerResult.rows[0]?.color || null;
+      } else if (playerCount > 1) {
+        const FINISH_CELLS = { red: 75, green: 57, yellow: 63, blue: 69 };
+        
+        const horsesQuery = await pool.query(`
+          SELECT h.cell_id, p.color FROM horses h
+          JOIN player p ON h.player_id = p.player_id
+          WHERE p.game_id = $1
+        `, [game_id]);
+
+        const winners = {};
+        horsesQuery.rows.forEach(h => {
+          if (!winners[h.color]) winners[h.color] = 0;
+          if (h.cell_id === FINISH_CELLS[h.color]) winners[h.color]++;
+        });
+
+        winner = Object.entries(winners).find(([_, count]) => count === 4)?.[0] || null;
+      }
+      // ===== End checkWinner =====
+
       return {
         success: true,
         code: 200,
@@ -156,6 +181,7 @@ class Game {
           status: game.status,
           current_turn_player_login: game.current_turn_player_login,
           step_time: game.step_time,
+          winner: winner, 
           players: players.map(p => ({
             player_id: p.player_id,
             login: p.login,
@@ -170,7 +196,6 @@ class Game {
       return { success: false, code: 500, message: 'Failed to get game state' };
     }
   }
-
   static async moveHorse(game_id, horse_id, login) {
     const client = await pool.connect();
     try {
@@ -260,30 +285,6 @@ class Game {
     } finally {
       client.release();
     }
-  }
-
-  static async checkWinner(game_id) {
-    const playerCount = await pool.query('SELECT COUNT(*) as count FROM player WHERE game_id = $1', [game_id]);
-    
-    if (parseInt(playerCount.rows[0].count) === 1) {
-      const winner = await pool.query('SELECT color FROM player WHERE game_id = $1', [game_id]);
-      return winner.rows[0] ? { winner: winner.rows[0].color } : { winner: null };
-    }
-
-    const horses = await pool.query(`
-      SELECT h.cell_id, p.color FROM horses h
-      JOIN player p ON h.player_id = p.player_id
-      WHERE p.game_id = $1
-    `, [game_id]);
-
-    const winners = {};
-    horses.rows.forEach(h => {
-      if (!winners[h.color]) winners[h.color] = 0;
-      if (h.cell_id === FINISH_CELLS[h.color]) winners[h.color]++;
-    });
-
-    const winnerColor = Object.entries(winners).find(([_, count]) => count === 4)?.[0] || null;
-    return { winner: winnerColor };
   }
 
   static async leaveGame(game_id, login) {

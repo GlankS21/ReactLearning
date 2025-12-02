@@ -99,17 +99,6 @@ class GameController {
     }
   }
 
-  async checkWinner(req, res) {
-    const { game_id } = req.params;
-    try {
-      const result = await Game.checkWinner(game_id);
-      return res.status(200).json({ success: true, data: result });
-    } 
-    catch (err) {
-      return res.status(500).json({ success: false, message: 'Не удалось проверить победителя', error: err.message });
-    }
-  }
-
   async leaveGame(req, res) {
     const { game_id } = req.params;
     const { login } = req.player;

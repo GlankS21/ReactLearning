@@ -1,39 +1,25 @@
-"use client"
 import { useState } from "react"
+import authAPI from "../../api/authAPI";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent"
 import ludoBoard from "../../assets/image/ludo board.png"
 import { Form } from "antd"
 import { LockOutlined, UserOutlined, ArrowRightOutlined } from "@ant-design/icons"
 import { WrapperButtonFeild, WrapperInputFeild, WrapperPasswordFeild } from "./style"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
 const SignUp = () => {
   const [errorMessage, setErrorMessage] = useState("")
 
   const onFinish = async (values) => {
     try {
-      setErrorMessage("") // reset lỗi cũ
-      console.log("Fetching from:", `${API_URL}/api/auth/signup`)
+      setErrorMessage("")
 
-      const response = await fetch(`${API_URL}/api/auth/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          login: values.fullName,
-          password: values.password,
-        }),
-      })
+      const response = await authAPI.signup(values.fullName, values.password);
 
-      const data = await response.json()
-
-      if (data.success) {
+      if (response.success) {
         alert("Sign up successful! You can now sign in.")
         window.location.href = "/signin"
       } else {
-        setErrorMessage(data.message || "Sign up failed")
+        setErrorMessage(response.message || "Sign up failed")
       }
     } catch (error) {
       console.error("Sign up error:", error)
@@ -102,7 +88,6 @@ const SignUp = () => {
               />
             </Form.Item>
 
-            {/* Dòng lỗi hiển thị tuyệt đối */}
             {errorMessage && (
               <div
                 style={{
