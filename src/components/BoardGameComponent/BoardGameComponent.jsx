@@ -137,7 +137,6 @@ const HOME_RANGES = {
   'green': { start: 64, end: 69 },
   'blue': { start: 70, end: 75 }
 }
-// check xem có thể di chuyển ngựa hay không
 const canHorseMove = (currentCell, diceRoll) => {
   const homeRange = Object.values(HOME_RANGES).find(range => currentCell >= range.start && currentCell <= range.end)
   
@@ -156,7 +155,6 @@ const getPositionFromCellNumber = (cellNumber) => {
 
 const BoardGameComponent = ({gameState, onMoveHorse, diceRoll, canMove,}) => {
   const [selectedHorse, setSelectedHorse] = useState(null)
-  // hành vi khi click ngựa
   const handleHorseClick = async (horse) => {
     if (!canMove) return
     if (horse.cell_number !== -1) if (!canHorseMove(horse.cell_number, diceRoll)) return
@@ -196,68 +194,127 @@ const BoardGameComponent = ({gameState, onMoveHorse, diceRoll, canMove,}) => {
 
   const renderHorses = () => {
     if (!gameState || !gameState.players) return null
-    const horses = []
+    const horsesByCell = {}
+    const allHorses = []
+    
     gameState.players.forEach((player) => {
       if (!player.horses) return
-
+      
       player.horses.forEach((horse) => {
         if (horse.cell_number === -1) return
-
-        const pos = getPositionFromCellNumber(horse.cell_number)
-        if (!pos) return
-
-        const isCurrentPlayerTurn = player.is_turn
-        const isMoveable = canHorseMove(horse.cell_number, diceRoll)
-        const isClickable = canMove && isCurrentPlayerTurn && isMoveable
-        const isSelected = selectedHorse === horse.horse_id
-
-        let borderColor = "#fff"
-        let cursorStyle = "default"
-        let opacity = 1
-        let pointerEvents = "auto"
-
-        if (isSelected) borderColor = "#FFD700" 
-        else if (isClickable) {
-          borderColor = "#FFD700" 
-          cursorStyle = "pointer"
-        } else if (isCurrentPlayerTurn && !isMoveable) {
-          opacity = 0.4
-          cursorStyle = "not-allowed"
-          pointerEvents = "none"
-        } else {
-          pointerEvents = "none"
+        allHorses.push({ 
+          ...horse, 
+          playerColor: player.color, 
+          isCurrentPlayer: player.is_turn 
+        })
+        
+        const key = `cell-${horse.cell_number}`
+        if (!horsesByCell[key]) {
+          horsesByCell[key] = []
         }
-        const screenWidth = window.innerWidth;
-        let CELL_SIZE;
-        if (screenWidth > 768) CELL_SIZE = 100 / 3; 
-        else CELL_SIZE = 30;
-    
-        horses.push(
-          <WrapperHorse
-            key={`horse-${horse.horse_id}`}
-            onClick={() => isClickable && handleHorseClick(horse)}
-            color={player.color}
-            borderColor={borderColor}
-            cursor={cursorStyle}
-            opacity={opacity}
-            pointerEvents={pointerEvents}
-         
-            style={{
-              left: `${pos.col * CELL_SIZE}px`,
-              top: `${pos.row * CELL_SIZE}px`,
-            }}
-          >
-            🐴
-          </WrapperHorse>
-        )
+        horsesByCell[key].push(horse.horse_id)
       })
+    })
+
+    const horses = []
+    allHorses.forEach((horse) => {
+      const pos = getPositionFromCellNumber(horse.cell_number)
+      if (!pos) return
+
+      const isCurrentPlayerTurn = horse.isCurrentPlayer
+      const isMoveable = canHorseMove(horse.cell_number, diceRoll)
+      const isClickable = canMove && isCurrentPlayerTurn && isMoveable
+      const isSelected = selectedHorse === horse.horse_id
+
+      let borderColor = "#fff"
+      let cursorStyle = "default"
+      let opacity = 1
+      let pointerEvents = "auto"
+
+      if (isSelected) {
+        borderColor = "#FFD700" 
+      } else if (isClickable) {
+        borderColor = "#FFD700" 
+        cursorStyle = "pointer"
+      } else if (isCurrentPlayerTurn && !isMoveable) {
+        opacity = 0.4
+        cursorStyle = "not-allowed"
+        pointerEvents = "none"
+      } else {
+        pointerEvents = "none"
+      }
+
+      const screenWidth = window.innerWidth
+      let CELL_SIZE
+      if (screenWidth > 768) {
+        CELL_SIZE = 100/3
+      } else {
+        CELL_SIZE = 30
+      }
+
+      const cellKey = `cell-${horse.cell_number}`
+      const horseIndexInCell = horsesByCell[cellKey].indexOf(horse.horse_id)
+      const totalHorsesInCell = horsesByCell[cellKey].length
+      const horseSize = totalHorsesInCell > 1 ? '15px' : '26px'
+      const fontSize = totalHorsesInCell > 1 ? '10px' : '14px'
+
+      let offsetX = 0
+      let offsetY = 0
+
+      if (totalHorsesInCell === 1) {
+        offsetX = 0
+        offsetY = 0
+      } else if (totalHorsesInCell === 2) {
+        offsetX = horseIndexInCell === 0 ? 0 : 12
+        offsetY = horseIndexInCell === 0 ? 0 : 15
+      } else if (totalHorsesInCell === 3) {
+        const angles = [0, 120, 240]
+        const angle = (angles[horseIndexInCell] * Math.PI) / 180
+        const radius = 10
+        offsetX = 5 + Math.cos(angle) * radius
+        offsetY = 8 + Math.sin(angle) * radius
+      } else if (totalHorsesInCell === 4) {
+        const positions = [
+          { x: -6, y: -6 },
+          { x: 6, y: -6 },
+          { x: -6, y: 6 },
+          { x: 6, y: 6 },
+        ]
+        offsetX = 6 + positions[horseIndexInCell].x
+        offsetY = 6 + positions[horseIndexInCell].y
+      } else {
+        const perRow = 2
+        const row = Math.floor(horseIndexInCell / perRow)
+        const col = horseIndexInCell % perRow
+        offsetX = (col - 0.5) * 8
+        offsetY = (row - 0.5) * 8
+      }
+
+      horses.push(
+        <WrapperHorse
+          key={`horse-${horse.horse_id}`}
+          onClick={() => isClickable && handleHorseClick(horse)}
+          color={horse.playerColor}
+          borderColor={borderColor}
+          cursor={cursorStyle}
+          opacity={opacity}
+          pointerEvents={pointerEvents}
+          horseSize={horseSize}
+          fontSize={fontSize}
+          style={{
+            left: `${pos.col * CELL_SIZE + offsetX}px`,
+            top: `${pos.row * CELL_SIZE + offsetY + 2}px`,
+          }}
+        >
+          🐴
+        </WrapperHorse>
+      )
     })
 
     return horses
   }
-
   const renderHomeArea = (color, playerIdx) => {
-    const player = gameState?.players?.[playerIdx]
+    const player = gameState?.players?.find(p => p.color === color)
     if (!player) {
       return (
         <WrapperTokenContainer>

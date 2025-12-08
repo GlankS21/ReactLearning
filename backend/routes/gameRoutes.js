@@ -4,8 +4,6 @@ const router = express.Router();
 const GameController = require('../controllers/GameController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// start, roll xóa k cần thiết, automatic 
-
 /**
  * @swagger
  * components:
@@ -22,42 +20,6 @@ const authMiddleware = require('../middleware/authMiddleware');
  *   name: Game
  *   description: API управления игровым процессом Ludo
  */
-
-/**
- * @swagger
- * /api/game/start:
- *   post:
- *     summary: Начать игру, если достаточно игроков
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - game_id
- *             properties:
- *               game_id:
- *                 type: integer
- *                 example: 12
- *     responses:
- *       200:
- *         description: Игра успешно начата
- *       400:
- *         description: Не хватает игроков или игра уже начата
- *       401:
- *         description: Требуется аутентификация
- *       403:
- *         description: Вы не в этой игре
- *       404:
- *         description: Игра не найдена
- *       500:
- *         description: Ошибка сервера
- */
-router.post('/start', authMiddleware, GameController.startGame);
 
 /**
  * @swagger
@@ -88,40 +50,6 @@ router.get('/:game_id', authMiddleware, GameController.getGameState);
 
 /**
  * @swagger
- * /api/game/roll:
- *   post:
- *     summary: Бросить кубик (только в свой ход)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - game_id
- *             properties:
- *               game_id:
- *                 type: integer
- *                 example: 12
- *     responses:
- *       200:
- *         description: Результат броска кубика
- *       400:
- *         description: Кубик уже брошен или не ваш ход
- *       401:
- *         description: Требуется аутентификация
- *       404:
- *         description: Игроки не найдены
- *       500:
- *         description: Ошибка сервера
- */
-router.post('/roll', authMiddleware, GameController.rollDice);
-
-/**
- * @swagger
  * /api/game/move:
  *   post:
  *     summary: Двигать фишку
@@ -135,12 +63,8 @@ router.post('/roll', authMiddleware, GameController.rollDice);
  *           schema:
  *             type: object
  *             required:
- *               - game_id
  *               - horse_id
  *             properties:
- *               game_id:
- *                 type: integer
- *                 example: 12
  *               horse_id:
  *                 type: integer
  *                 example: 79
@@ -154,46 +78,11 @@ router.post('/roll', authMiddleware, GameController.rollDice);
  *       403:
  *         description: Не ваш ход или не ваша фишка
  *       404:
- *         description: Фишка или игра не найдены
+ *         description: Фишка не найдена
  *       500:
  *         description: Ошибка сервера
  */
 router.post('/move', authMiddleware, GameController.moveHorse);
-
-/**
- * @swagger
- * /api/game/pass:
- *   post:
- *     summary: Пропустить ход (нет доступных ходов)
- *     description: |
- *       Пропустить текущий ход и передать его следующему игроку.
- *       Используется когда нет доступных фишек для движения или время истекло.
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - game_id
- *             properties:
- *               game_id:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Ход успешно пропущен
- *       403:
- *         description: Не ваш ход
- *       404:
- *         description: Игра или игрок не найдены
- *       500:
- *         description: Ошибка сервера
- */
-router.post('/pass', authMiddleware, GameController.passMove);
-
 /**
  * @swagger
  * /api/game/{game_id}/leave:

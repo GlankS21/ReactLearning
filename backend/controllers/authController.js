@@ -21,10 +21,12 @@ class AuthController{
       }
       // tạo user
       const user = await User.create(login, password);
+      const token = User.generateToken();
+      await User.createToken(token, login);
       return res.status(201).json({
         success: true,
         message: "Пользователь создал",
-        data: {login: user.login},
+        data: {login: user.login, token},
       });
     } 
     catch(err){
@@ -101,31 +103,6 @@ class AuthController{
       return res.status(500).json({
         success: false,
         message: "Server err",
-      });
-    }
-  }
-  
-  async getProfile(req, res) {
-    try {
-      const login = req.user.login;
-
-      const user = await User.findByLogin(login);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'Пользователь не найден',
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: { login: user.login, active: user.active },
-      });
-    } catch (error) {
-      console.error('GetProfile error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Server error',
       });
     }
   }

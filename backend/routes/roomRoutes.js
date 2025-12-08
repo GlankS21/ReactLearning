@@ -55,8 +55,6 @@ router.post('/create', (req, res) => {roomController.createRoom(req, res);});
  */
 router.get('/list', (req, res) => { roomController.listRooms(req, res);});
 
-
-// join xóa token
 /**
  * @swagger
  * /api/room/join:
@@ -72,11 +70,8 @@ router.get('/list', (req, res) => { roomController.listRooms(req, res);});
  *           schema:
  *             type: object
  *             required:
- *               - token
  *               - game_id
  *             properties:
- *               token:
- *                 type: string
  *               game_id:
  *                 type: integer
  *                 example: 1

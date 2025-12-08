@@ -126,42 +126,56 @@ const WaitingRoom = () => {
               Нет доступных комнат. Создайте!
             </div>
           ) : (
-            filteredRooms.map((room) => (
-              <style.WrapperRoomCard key={room.game_id}>
-                <style.WrapperRoomHeader>
-                  <span>Комната {room.game_id}</span>
-                  <style.WrapperRoomTime>{room.step_time}s</style.WrapperRoomTime>
-                </style.WrapperRoomHeader>
+            filteredRooms.map((room) => {
+              const isGameStarted = room.status === 'started';
+              const isFull = room.current_players >= room.player_amount;
+              const canJoin = !isGameStarted && !isFull;
 
-                <style.WrapperPlayersGrid>
-                  {Array.from({ length: room.player_amount }).map((_, index) => {
-                    const player = room.players?.[index];
-                    return (
-                      <style.WrapperPlayerSlot key={index} isEmpty={!player}>
-                        {player ? (
-                          <>
-                            <style.WrapperPlayerAvatar
-                              src={`https://i.pravatar.cc/150?img=${index}`}
-                              alt={`Player ${index}`}
-                              onError={(e) => {
-                                e.currentTarget.src = "/placeholder.svg";
-                              }}
-                            />
-                            <style.WrapperPlayerName>{player.login}</style.WrapperPlayerName>
-                          </>
-                        ) : (
-                          <div />
-                        )}
-                      </style.WrapperPlayerSlot>
-                    );
-                  })}
-                </style.WrapperPlayersGrid>
+              return (
+                <style.WrapperRoomCard key={room.game_id} style={{ opacity: isGameStarted ? 0.6 : 1 }}>
+                  <style.WrapperRoomHeader>
+                    <span>Комната {room.game_id}</span>
+                    <style.WrapperRoomTime>{room.step_time}s</style.WrapperRoomTime>
+                  </style.WrapperRoomHeader>
 
-                <style.WrapperRoomButton onClick={() => handleJoinRoom(room.game_id)}>
-                  {room.current_players >= room.player_amount ? "Полна" : "Присоединиться"}
-                </style.WrapperRoomButton>
-              </style.WrapperRoomCard>
-            ))
+                  <style.WrapperPlayersGrid>
+                    {Array.from({ length: room.player_amount }).map((_, index) => {
+                      const player = room.players?.[index];
+                      return (
+                        <style.WrapperPlayerSlot key={index} isEmpty={!player}>
+                          {player ? (
+                            <>
+                              <style.WrapperPlayerAvatar
+                                src={`https://i.pravatar.cc/150?img=${index}`}
+                                alt={`Player ${index}`}
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                              <style.WrapperPlayerName>{player.login}</style.WrapperPlayerName>
+                            </>
+                          ) : (
+                            <div />
+                          )}
+                        </style.WrapperPlayerSlot>
+                      );
+                    })}
+                  </style.WrapperPlayersGrid>
+
+                  <style.WrapperRoomButton 
+                    onClick={() => canJoin && handleJoinRoom(room.game_id)}
+                    disabled={!canJoin}
+                    style={{
+                      cursor: canJoin ? 'pointer' : 'not-allowed',
+                      backgroundColor: isGameStarted ? '#8b7355' : (isFull ? '#FF6B6B' : '#8b7355'),
+                      opacity: canJoin ? 1 : 0.6
+                    }}
+                  >
+                    {isGameStarted ? 'началось' : (isFull ? 'Полна' : 'Присоединиться')}
+                  </style.WrapperRoomButton>
+                </style.WrapperRoomCard>
+              );
+            })
           )}
         </style.WrapperRoomsGrid>
 

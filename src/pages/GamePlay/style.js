@@ -100,8 +100,10 @@ export const WrapperDiceIcon = styled.div`
   background-color: white;
   border: 2px solid #333;
   border-radius: 6px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   @media (max-width: 1024px) {
     width: 36px;

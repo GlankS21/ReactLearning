@@ -67,16 +67,13 @@ class RoomController {
       if (!game_id) {
         return res.status(400).json({
           success: false,
-          message: 'Требуется идентификатор игры',
+          message: 'Требуется ID игры',
         });
       }
 
       client = await pool.connect();
       await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
-      const game = await client.query(
-        'SELECT player_amount FROM games WHERE game_id = $1',
-        [game_id]
-      );
+      const game = await client.query('SELECT player_amount, status FROM games WHERE game_id = $1', [game_id]);
       if (game.rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({
@@ -84,7 +81,17 @@ class RoomController {
           message: 'Игра не найдена',
         });
       }
-      const hasPlayer = await client.query( 'SELECT player_id FROM player WHERE game_id = $1 AND login = $2', [game_id, login]);
+
+      const gameData = game.rows[0];
+      if (gameData.status === 'started') {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          message: 'Игра уже началась, невозможно присоединиться',
+        });
+      }
+
+      const hasPlayer = await client.query( 'SELECT player_id FROM player WHERE game_id = $1 AND login = $2', [game_id, login] );
       if (hasPlayer.rows.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({
@@ -92,7 +99,7 @@ class RoomController {
           message: 'Игрок уже присоединился',
         });
       }
-      const activeGame = await client.query('SELECT game_id FROM player WHERE login = $1 AND game_id != $2 LIMIT 1',[login, game_id]);
+      const activeGame = await client.query( 'SELECT game_id FROM player WHERE login = $1 AND game_id != $2 LIMIT 1', [login, game_id]);
       if (activeGame.rows.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({
@@ -100,12 +107,12 @@ class RoomController {
           message: `Вы уже в игре №${activeGame.rows[0].game_id}. Покиньте ее, прежде чем присоединиться к новой`,
         });
       }
-      const playersResult = await client.query(
-        'SELECT player_number FROM player WHERE game_id = $1 ORDER BY player_number', [game_id]
-      );
+
+      const playersResult = await client.query( 'SELECT player_number FROM player WHERE game_id = $1 ORDER BY player_number', [game_id]);
 
       const currentPlayerCount = playersResult.rows.length;
-      const maxPlayers = game.rows[0].player_amount;
+      const maxPlayers = gameData.player_amount;
+
       if (currentPlayerCount >= maxPlayers) {
         await client.query('ROLLBACK');
         return res.status(400).json({
@@ -113,6 +120,7 @@ class RoomController {
           message: 'Игра заполнена',
         });
       }
+
       let playerNumber = 1;
       for (let i = 0; i < maxPlayers; i++) {
         const occupied = playersResult.rows.some(p => p.player_number === i + 1);
@@ -121,29 +129,53 @@ class RoomController {
           break;
         }
       }
+
+      const COLOR_BY_NUMBER = ['green', 'yellow', 'blue', 'red'];
       const color = COLOR_BY_NUMBER[playerNumber - 1];
-      const playerRes = await client.query(
-        `INSERT INTO player (game_id, login, color, player_number) VALUES ($1, $2, $3, $4)
-         RETURNING player_id`, [game_id, login, color, playerNumber]
-      );
+
+      const playerRes = await client.query( `INSERT INTO player (game_id, login, color, player_number) VALUES ($1, $2, $3, $4) 
+        RETURNING player_id`, [game_id, login, color, playerNumber]);
 
       const player_id = playerRes.rows[0].player_id;
       for (let i = 0; i < 4; i++) {
         await client.query( `INSERT INTO horses (player_id, cell_id) VALUES ($1, $2)`, [player_id, -1]);
       }
-      
-      // const Game = require('../models/Game');
-      // await Game.startGame(game_id);
+
+      const newPlayerCount = currentPlayerCount + 1; 
+
+      let gameStarted = false;
+      let firstPlayerRoll = null;
+
+      if (newPlayerCount === maxPlayers) {
+        const allPlayers = await client.query(
+          'SELECT player_id, login, player_number FROM player WHERE game_id = $1 ORDER BY player_number', [game_id]
+        );
+
+        const firstPlayer = allPlayers.rows[0]; 
+        await client.query(
+          'UPDATE games SET status = $1, current_turn_player_login = $2 WHERE game_id = $3', ['started', firstPlayer.login, game_id]
+        );
+        const allPlayerIds = allPlayers.rows.map(p => p.player_id);
+        await client.query('DELETE FROM dice WHERE player_id = ANY($1::int[])', [allPlayerIds]);
+        firstPlayerRoll = Math.floor(Math.random() * 6) + 1;
+        await client.query(
+          'INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, $2, false, NULL)', [firstPlayer.player_id, firstPlayerRoll]
+        );
+        gameStarted = true;
+      }
+
       await client.query('COMMIT');
-      
+
       return res.status(200).json({
         success: true,
         message: 'Присоединились к комнате успешно',
         data: {
           login,
-          player_number: playerNumber,
           color: color,
           max_players: maxPlayers,
+          current_players: newPlayerCount,
+          gameStarted: gameStarted, 
+          firstPlayerRoll: firstPlayerRoll,
         },
       });
     } 
@@ -154,14 +186,6 @@ class RoomController {
         } catch (e) {}
       }
       console.error(error);
-      
-      if (error.code === '40001') {
-        return res.status(409).json({
-          success: false,
-          message: 'Конфликт доступа. Попробуйте снова.',
-        });
-      }
-
       return res.status(500).json({
         success: false,
         message: 'Не удалось присоединиться к комнате',
@@ -285,6 +309,7 @@ class RoomController {
       game_id: game.game_id,
       player_amount: game.player_amount,
       step_time: game.step_time,
+      status: game.status,
       current_players: playerCount,
       players,
     };

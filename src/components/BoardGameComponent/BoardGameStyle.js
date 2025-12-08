@@ -255,17 +255,16 @@ export const WrapperCenterTriangle = styled.div`
 
 export const WrapperHorse = styled.div`
   position: absolute;
-  width: 26px;
-  height: 26px;
+  width: ${(props) => props.horseSize || '26px'};
+  height: ${(props) => props.horseSize || '26px'};
   border-radius: 50%;
   background-color: ${(props) => props.color};
-  border: ${(props) => props.borderWidth} solid ${(props) => props.borderColor};
+  border: 2px solid ${(props) => props.borderColor};
   cursor: ${(props) => props.cursor};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: ${(props) => props.fontSize || '14px'};
   transform: ${(props) => props.transform};
   transition: all 0.2s;
   opacity: ${(props) => props.opacity};
@@ -273,17 +272,17 @@ export const WrapperHorse = styled.div`
   pointer-events: ${(props) => props.pointerEvents};
 
   @media (max-width: 768px) {
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
+    width: ${(props) => props.horseSize || '22px'};
+    height: ${(props) => props.horseSize || '22px'};
+    font-size: ${(props) => props.fontSize || '12px'};
   }
 
   @media (max-width: 480px) {
-    width: 18px;
-    height: 18px;
-    font-size: 10px;
+    width: ${(props) => props.horseSize || '18px'};
+    height: ${(props) => props.horseSize || '18px'};
+    font-size: ${(props) => props.fontSize || '10px'};
   }
-`
+`;
 
 export const WrapperHomeHorse = styled.div`
   height: 36px;
