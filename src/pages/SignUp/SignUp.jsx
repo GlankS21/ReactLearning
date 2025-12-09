@@ -17,13 +17,13 @@ const SignUp = () => {
 
       if (response.success) {
         alert("Sign up successful! You can now sign in.")
-        window.location.href = "/signin"
+        window.location.href = "/ludohome"
       } else {
         setErrorMessage(response.message || "Sign up failed")
       }
     } catch (error) {
       console.error("Sign up error:", error)
-      setErrorMessage("Cannot connect to server")
+      setErrorMessage("Логин уже существует !")
     }
   }
 

@@ -9,32 +9,24 @@ const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const gameRoutes = require('./routes/gameRoutes');
 const Game = require('./models/Game');
-const Room = require('./models/Room');
 
 const app = express();
 const server = http.createServer(app);
 
-// ============================================
-// CORS Configuration - Allow Multiple Origins
-// ============================================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:8000',
   'http://127.0.0.1:3000',
   process.env.CLIENT_URL
-].filter(Boolean); // Remove undefined/null values
+].filter(Boolean); 
 
 console.log('[CORS] Allowed origins:', allowedOrigins);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
+    if (!origin) return callback(null, true);    
+    if (allowedOrigins.includes(origin)) callback(null, true);
+    else {
       console.warn(`[CORS] Rejected origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
@@ -63,18 +55,12 @@ const ioOptions = {
   }
 };
 
-// ============================================
-// Socket.IO Initialization
-// ============================================
 const io = socketIO(server, ioOptions);
 
 io.on('connect_error', (error) => {
   console.error(`[SOCKET.IO_ERROR] Connection Error:`, error.message);
 });
 
-// ============================================
-// Express Middleware
-// ============================================
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -86,9 +72,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/room', roomRoutes);
 app.use('/api/game', gameRoutes);
 
-// ============================================
-// Socket.IO Connection Handler
-// ============================================
 io.on('connection', (socket) => {
   const gameId = socket.handshake.query.gameId;
   const roomId = socket.handshake.query.roomId;
@@ -108,13 +91,9 @@ io.on('connection', (socket) => {
     const roomName = `game-${gameId}`;
     socket.join(roomName);
     console.log(`[SOCKET_CONNECTION] ${login} connected to game ${gameId}`);
-
-    // Socket error handler
     socket.on('error', (error) => {
       console.error(`[SOCKET_ERROR] ${login} - Game ${gameId}:`, error);
     });
-
-    // Handle Player Leaving Game
     socket.on('playerLeaving', async (data) => {
       try {
         await Game.leaveGame(gameId, login);
@@ -136,7 +115,6 @@ io.on('connection', (socket) => {
       }
     });
 
-    // Handle Tab Close
     socket.on('tabClosing', async (data) => {
       try {
         await Game.leaveGame(gameId, login);
@@ -157,30 +135,12 @@ io.on('connection', (socket) => {
       }
     });
 
-    // Handle Game Disconnect
-    socket.on('disconnect', async () => {
-      try {
-        await Game.leaveGame(gameId, login);
-        
-        io.to(roomName).emit('playerLeft', {
-          login: login,
-          message: `${login} disconnected`
-        });
-
-        const gameState = await Game.getGameState(gameId);
-        if (gameState.success) {
-          io.to(roomName).emit('gameStateUpdate', gameState.data);
-        }
-      } catch (err) {
-        console.error(`[SOCKET_DISCONNECT] Error:`, err);
-      }
+    socket.on('disconnect', () => {
+      console.log(`[SOCKET_DISCONNECT] ${login} socket disconnected from game ${gameId}`);
     });
   }
 });
 
-// ============================================
-// API endpoint để xử lý tab close qua HTTP
-// ============================================
 app.post('/api/game/:game_id/leave', async (req, res) => {
   try {
     const { game_id } = req.params;

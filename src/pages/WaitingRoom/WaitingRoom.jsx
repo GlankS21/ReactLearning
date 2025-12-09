@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import roomAPI from "../../api/roomAPI";
+import gameAPI from "../../api/gameAPI";
 import * as style from "./style";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
 
@@ -8,13 +9,31 @@ const WaitingRoom = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const playerFilter = parseInt(searchParams.get("players")) || 4;
+  const myLogin = localStorage.getItem("login");
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [numPlayers, setNumPlayers] = useState("4");
   const [timePerMove, setTimePerMove] = useState("30");
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeGame, setActiveGame] = useState(null);
+  const [rejoinLoading, setRejoinLoading] = useState(false);
 
   const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!myLogin) return;
+
+    const gameInfoStr = localStorage.getItem(`activeGame_${myLogin}`);
+    if (gameInfoStr) {
+      try {
+        const gameInfo = JSON.parse(gameInfoStr);
+        setActiveGame(gameInfo);
+      } catch (err) {
+        console.error('Error parsing game info:', err);
+      }
+    }
+  }, [myLogin]);
 
   const fetchRooms = async () => {
     try {
@@ -37,6 +56,56 @@ const WaitingRoom = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  const handleRejoinGame = async () => {
+    if (!activeGame) return;
+    
+    setRejoinLoading(true);
+    try {
+      const response = await gameAPI.getGameState(activeGame.gameId);
+      
+      if (response?.success) {
+        const isStillInGame = response.data?.players?.some(p => p.login === myLogin);  
+        if (isStillInGame) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          navigate(`/gameplay?gameId=${activeGame.gameId}`);
+        } else {
+          localStorage.removeItem(`activeGame_${myLogin}`);
+          setActiveGame(null);
+          alert('Вас удалили из игры');
+        }
+      } 
+      else {
+        localStorage.removeItem(`activeGame_${myLogin}`);
+        setActiveGame(null);
+        alert('Игра закончилась !');
+      }
+    } 
+    catch (err) {
+      localStorage.removeItem(`activeGame_${myLogin}`);
+      setActiveGame(null);
+      alert('Игра закончилась !');
+    } finally {
+      setRejoinLoading(false);
+    }
+  };
+
+  // ============================================
+  // Clear active game (permanent exit)
+  // ============================================
+  const handleClearGame = async () => {
+    if (!myLogin) return;
+    
+    try {
+      // Call API to leave game
+      await gameAPI.leaveGame(activeGame.gameId, myLogin);
+    } catch (err) {
+      console.error('Error leaving game:', err);
+    }
+    
+    localStorage.removeItem(`activeGame_${myLogin}`);
+    setActiveGame(null);
+  };
 
   const handleJoinRoom = async (roomId) => {
     try {
@@ -86,11 +155,6 @@ const WaitingRoom = () => {
     }
   };
 
-  const handleBack = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    navigate("/ludohome");
-  };
-
   const handleCreateGame = () => {
     setIsModalOpen(true);
   };
@@ -116,8 +180,90 @@ const WaitingRoom = () => {
   return (
     <BackgroundComponent opacity={0.95}>
       <style.WrapperContainer>
-        <style.WrapperBackButton onClick={handleBack}>←</style.WrapperBackButton>
+        <style.WrapperBackButton onClick={() => {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          navigate("/ludohome");
+        }}>←</style.WrapperBackButton>
+        
         <style.WrapperTitle>ТУРНИР</style.WrapperTitle>
+
+        {activeGame && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: 15,
+              padding: 40,
+              maxWidth: 500,
+              textAlign: 'center',
+              color: 'white'
+            }}>
+              <h2 style={{ color: '#d19200ff', marginTop: 0, fontSize: 24 }}>Вы в игре !</h2>
+              <p style={{ fontSize: 18, marginBottom: 10 }}>
+                У вас идёт игра. Хотите присоединиться снова?
+              </p>
+              <p style={{ fontSize: 14, color: '#aaa', marginBottom: 30 }}>
+                Game ID: {activeGame.gameId}
+              </p>
+
+              <div style={{ display: 'flex', gap: 15, justifyContent: 'center' }}>
+                <button
+                  onClick={handleRejoinGame}
+                  disabled={rejoinLoading}
+                  style={{
+                    padding: '15px 40px',
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    backgroundColor: '#4caf50',
+                    color: '#fff',
+                    borderColor: '#4caf50',
+                    borderRadius: 8,
+                    cursor: rejoinLoading ? 'not-allowed' : 'pointer',
+                    opacity: rejoinLoading ? 0.7 : 1,
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={(e) => !rejoinLoading && (e.target.style.borderColor = '#fff')}
+                  onMouseLeave={(e) => (e.target.style.borderColor = '#4caf50')}
+                >
+                  {rejoinLoading ? '⏳ Loading...' : 'Присоединиться'}
+                </button>
+
+                <button
+                  onClick={handleClearGame}
+                  disabled={rejoinLoading}
+                  style={{
+                    padding: '15px 40px',
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 8,
+                    cursor: rejoinLoading ? 'not-allowed' : 'pointer',
+                    opacity: rejoinLoading ? 0.7 : 1,
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={(e) => !rejoinLoading && (e.target.style.borderColor = '#fff')}
+                  onMouseLeave={(e) => (e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)')}
+                >
+                  Выйти
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <style.WrapperCreateButton onClick={handleCreateGame}>+ Создать игру</style.WrapperCreateButton>
 
         <style.WrapperRoomsGrid>

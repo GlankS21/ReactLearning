@@ -104,6 +104,7 @@ export const WrapperDiceIcon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
 
   @media (max-width: 1024px) {
     width: 36px;
@@ -136,8 +137,7 @@ export const WrapperTimerCircle = styled.div`
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   position: absolute;
-  
-  /* Position timer outside of the player section flow */
+  \
   ${(props) => {
     if (props.position === "left") {
       return `

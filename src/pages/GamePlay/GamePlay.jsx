@@ -18,6 +18,7 @@ import {
   WrapperDiceDot,
 } from "./style";
 
+// --------3D DICE---------
 const DiceAnimation = ({ number, isRolling }) => {
   const getRotation = (num) => {
     const rotations = {
@@ -158,11 +159,10 @@ const GamePlay = () => {
   const prevCurrentTurnRef = useRef(null);
   const prevDiceRef = useRef(null);
 
+  // ---------SOCKET----------
   useEffect(() => {
     if (!gameId || !myLogin) return;
-
     if (socketRef.current?.connected) return;
-
     const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:8000';
 
     socketRef.current = io(serverUrl, {
@@ -179,7 +179,12 @@ const GamePlay = () => {
     });
 
     socketRef.current.on('connect', () => {
-      console.log('[Socket] Connected');
+      const gameInfo = {
+        gameId,
+        login: myLogin,
+        joinedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`activeGame_${myLogin}`, JSON.stringify(gameInfo));
     });
 
     socketRef.current.on('connect_error', (error) => {
@@ -200,14 +205,13 @@ const GamePlay = () => {
 
   useEffect(() => {
     if (!gameId || !myLogin) return;
-
     const handleBeforeUnload = () => {
       const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:8000';
       const payload = JSON.stringify({ game_id: gameId, login: myLogin });
       
       if (navigator.sendBeacon) {
         navigator.sendBeacon(
-          `${serverUrl}/api/game/${gameId}/leave?login=${myLogin}`,
+          `${serverUrl}/api/game/${gameId}/leave`,
           payload
         );
       }
@@ -220,6 +224,7 @@ const GamePlay = () => {
     };
   }, [gameId, myLogin]);
 
+  // ---------STATUS-----------
   const fetchGameState = useCallback(async () => {
     if (!gameId) return;
 
@@ -227,7 +232,7 @@ const GamePlay = () => {
       const response = await gameAPI.getGameState(gameId);
       if (!response?.success) {
         if (response?.code === 404) {
-          setError("Trò chơi đã kết thúc");
+          setError("Игра закончилась");
           if (pollRef.current) clearInterval(pollRef.current);
           setTimeout(() => navigate("/ludohome"), 2000);
         }
@@ -236,7 +241,7 @@ const GamePlay = () => {
 
       const isStillInGame = response.data?.players?.some(p => p.login === myLogin);
       if (!isStillInGame) {
-        setError("Bạn đã bị remove khỏi trò chơi");
+        setError("Вы удалены из игры");
         if (pollRef.current) clearInterval(pollRef.current);
         setTimeout(() => navigate("/ludohome"), 2000);
         return;
@@ -267,6 +272,7 @@ const GamePlay = () => {
     }
   }, [gameId, myLogin, navigate]);
 
+  // ----------ROLL DICE --------------
   useEffect(() => {
     if (!gameId) return;
     
@@ -282,6 +288,7 @@ const GamePlay = () => {
     };
   }, [gameId, fetchGameState]);
 
+  // -----------RENDER TIME--------------
   useEffect(() => {
     if (!gameState) return;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -321,6 +328,7 @@ const GamePlay = () => {
     };
   }, [gameState?.current_turn, gameId, fetchGameState]);
 
+  // --------------MOVE----------------
   const handleMoveHorse = useCallback(async (horseId) => {
     if (isMoving || !gameState) return false;
     setIsMoving(true);
@@ -349,6 +357,7 @@ const GamePlay = () => {
     }
   }, [isMoving, gameState, fetchGameState]);
 
+  // -----------EXIT---------------
   const handleExit = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -360,10 +369,12 @@ const GamePlay = () => {
         console.error('[handleExit]', err);
       });
     }
-
+    
+    localStorage.removeItem(`activeGame_${myLogin}`);
     navigate("/ludohome");
   }, [navigate, gameId, myLogin]);
 
+  // ---------AUTO LEAVE----------
   useEffect(() => {
     if (!winner) return;
 
@@ -374,11 +385,12 @@ const GamePlay = () => {
     return () => clearTimeout(timer);
   }, [winner, handleExit]);
 
+  // ------------WINNER------------
   if (winner) {
     const winnerPlayer = gameState?.players.find(p => p.color === winner);
     let winnerLogin = winnerPlayer?.login || winner;
     if (winnerLogin === myLogin) winnerLogin = 'You';
-    
+    localStorage.removeItem(`activeGame_${myLogin}`);
     return (
       <BackgroundComponent opacity={0.95}>
         <WrapperContainer>
@@ -426,7 +438,7 @@ const GamePlay = () => {
   const diceRoll = gameState.dice;
   const canMove = isMyTurn && diceRoll;
 
-
+  // -----------TIME----------
   const renderTimer = (player, position) => {
     if (!player.is_turn) return null;
     const percentage = (gameState.remaining_time / gameState.step_time) * 100;
@@ -437,7 +449,7 @@ const GamePlay = () => {
     );
   };
 
-
+  // -----------DICE----------
   const renderDice = (player) => {
     const isCurrent = currentPlayer?.login === player.login;
     const isAnimating = isCurrent && rollingDice !== null;
