@@ -163,7 +163,7 @@ const GamePlay = () => {
   useEffect(() => {
     if (!gameId || !myLogin) return;
     if (socketRef.current?.connected) return;
-    const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:8000';
+    const serverUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
     socketRef.current = io(serverUrl, {
       reconnection: true,
