@@ -195,8 +195,6 @@ const RoomPage = () => {
 
       if (!isReloadingRef.current) {
         console.log("Unload event, leaving room");
-        
-        // Gọi API với fetch keepalive
         try {
           fetch(`http://localhost:8000/api/room/leave`, {
             method: 'POST',

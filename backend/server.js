@@ -13,25 +13,68 @@ const Room = require('./models/Room');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
+
+// ============================================
+// CORS Configuration - Allow Multiple Origins
+// ============================================
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:8000',
+  'http://127.0.0.1:3000',
+  process.env.CLIENT_URL
+].filter(Boolean); // Remove undefined/null values
+
+console.log('[CORS] Allowed origins:', allowedOrigins);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Rejected origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+const ioOptions = {
   cors: {
-    origin: process.env.CLIENT_URL === '*' ? '*' : (process.env.CLIENT_URL || 'http://localhost:3000'),
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[Socket.IO] Rejected origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
-});
+};
+
+// ============================================
+// Socket.IO Initialization
+// ============================================
+const io = socketIO(server, ioOptions);
 
 io.on('connect_error', (error) => {
   console.error(`[SOCKET.IO_ERROR] Connection Error:`, error.message);
 });
 
-const corsOptions = {
-  origin: process.env.CLIENT_URL === '*' ? '*' : (process.env.CLIENT_URL || 'http://localhost:3000'),
-  credentials: process.env.CLIENT_URL !== '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
+// ============================================
+// Express Middleware
+// ============================================
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -43,8 +86,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/room', roomRoutes);
 app.use('/api/game', gameRoutes);
 
+// ============================================
+// Socket.IO Connection Handler
+// ============================================
 io.on('connection', (socket) => {
-  
   const gameId = socket.handshake.query.gameId;
   const roomId = socket.handshake.query.roomId;
   const login = socket.handshake.query.login;
@@ -61,6 +106,15 @@ io.on('connection', (socket) => {
 
   if (gameId) {
     const roomName = `game-${gameId}`;
+    socket.join(roomName);
+    console.log(`[SOCKET_CONNECTION] ${login} connected to game ${gameId}`);
+
+    // Socket error handler
+    socket.on('error', (error) => {
+      console.error(`[SOCKET_ERROR] ${login} - Game ${gameId}:`, error);
+    });
+
+    // Handle Player Leaving Game
     socket.on('playerLeaving', async (data) => {
       try {
         await Game.leaveGame(gameId, login);
@@ -82,6 +136,7 @@ io.on('connection', (socket) => {
       }
     });
 
+    // Handle Tab Close
     socket.on('tabClosing', async (data) => {
       try {
         await Game.leaveGame(gameId, login);
@@ -102,8 +157,8 @@ io.on('connection', (socket) => {
       }
     });
 
+    // Handle Game Disconnect
     socket.on('disconnect', async () => {
-      
       try {
         await Game.leaveGame(gameId, login);
         
@@ -116,7 +171,6 @@ io.on('connection', (socket) => {
         if (gameState.success) {
           io.to(roomName).emit('gameStateUpdate', gameState.data);
         }
-        
       } catch (err) {
         console.error(`[SOCKET_DISCONNECT] Error:`, err);
       }
@@ -124,6 +178,9 @@ io.on('connection', (socket) => {
   }
 });
 
+// ============================================
+// API endpoint để xử lý tab close qua HTTP
+// ============================================
 app.post('/api/game/:game_id/leave', async (req, res) => {
   try {
     const { game_id } = req.params;
@@ -132,8 +189,11 @@ app.post('/api/game/:game_id/leave', async (req, res) => {
     if (!login || !game_id) {
       return res.status(400).json({ error: 'Missing login or game_id' });
     }
+
+    console.log(`[LEAVE_GAME_API] ${login} left game ${game_id}`);
     await Game.leaveGame(game_id, login);
-  
+    
+    // Broadcast cập nhật game state
     await broadcastGameState(game_id);
     
     res.json({ 
@@ -141,6 +201,7 @@ app.post('/api/game/:game_id/leave', async (req, res) => {
       message: `Player ${login} left game ${game_id}`
     });
   } catch (err) {
+    console.error(`[LEAVE_GAME_API] Error:`, err.message);
     res.status(500).json({ 
       error: 'Failed to leave game',
       message: err.message 
@@ -148,6 +209,9 @@ app.post('/api/game/:game_id/leave', async (req, res) => {
   }
 });
 
+// ============================================
+// Broadcast game state helper
+// ============================================
 const broadcastGameState = async (gameId) => {
   try {
     const gameState = await Game.getGameState(gameId);
@@ -161,8 +225,14 @@ const broadcastGameState = async (gameId) => {
 
 app.locals.broadcastGameState = broadcastGameState;
 
+// ============================================
+// Database initialization
+// ============================================
 initDatabase();
 
+// ============================================
+// Server startup
+// ============================================
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log(`Server running at port ${PORT}`);
@@ -175,6 +245,9 @@ server.listen(PORT, () => {
   process.exit(1);
 });
 
+// ============================================
+// Graceful shutdown
+// ============================================
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
   server.close(() => {
