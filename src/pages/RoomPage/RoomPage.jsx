@@ -74,9 +74,6 @@ const RoomPage = () => {
     };
   }, [gameId, login]);
 
-  // ============================================
-  // Fetch Room Details (Polling mỗi 2s)
-  // ============================================
   const fetchRoomDetails = useCallback(async () => {
     if (!login) {
       navigate("/ludohome");
@@ -111,12 +108,11 @@ const RoomPage = () => {
       setPlayers(playerList);
       setError(null);
 
-      // Khi game started, đánh dấu đang chuyển sang game
       if (response.data.status === "started") {
         if (socketRef.current) {
           socketRef.current.disconnect();
         }
-        isNavigatingToGameRef.current = true;  // Đánh dấu trước khi navigate
+        isNavigatingToGameRef.current = true; 
         
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (countdownRef.current) clearTimeout(countdownRef.current);
@@ -166,9 +162,6 @@ const RoomPage = () => {
     }
   }, [gameId, login, navigate]);
 
-  // ============================================
-  // Countdown Logic
-  // ============================================
   useEffect(() => {
     if (!room) return;
 
@@ -192,9 +185,6 @@ const RoomPage = () => {
     };
   }, [countdownTime, players.length, room]);
 
-  // ============================================
-  // Render
-  // ============================================
   if (loading) {
     return (
       <BackgroundComponent opacity={0.95}>
@@ -273,7 +263,7 @@ const RoomPage = () => {
             fontWeight: 'bold',
             marginBottom: '20px',
           }}>
-            ✅ Комната заполнена! Игра начинается...
+            Комната заполнена! Игра начинается...
             {countdownTime !== null && <div>({countdownTime})</div>}
           </div>
         )}

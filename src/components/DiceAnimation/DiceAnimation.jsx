@@ -1,10 +1,10 @@
-
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const DiceAnimation = ({ number, isRolling, onAnimationEnd }) => {
   const [displayNumber, setDisplayNumber] = useState(number);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationRef = useRef(null);
+  const hasCalledEndRef = useRef(false);
 
   const getRotation = (num) => {
     const rotations = {
@@ -20,11 +20,13 @@ const DiceAnimation = ({ number, isRolling, onAnimationEnd }) => {
 
   useEffect(() => {
     if (isRolling) {
+      // Reset flag khi bắt đầu roll mới
+      hasCalledEndRef.current = false;
       setIsAnimating(true);
 
-      const rollCount = 10; // 10-14 lần
+      const rollCount = 10;
       let currentRoll = 0;
-      const rollInterval = 80; // 80ms mỗi lần đổi số
+      const rollInterval = 80;
 
       const animate = () => {
         currentRoll++;
@@ -37,7 +39,11 @@ const DiceAnimation = ({ number, isRolling, onAnimationEnd }) => {
           // Dừng ở số cuối cùng
           setDisplayNumber(number);
           setIsAnimating(false);
-          if (onAnimationEnd) {
+          
+          // Gọi onAnimationEnd chỉ 1 lần
+          if (onAnimationEnd && !hasCalledEndRef.current) {
+            hasCalledEndRef.current = true;
+            console.log('[DiceAnimation] Animation ended, calling onAnimationEnd');
             onAnimationEnd();
           }
         }

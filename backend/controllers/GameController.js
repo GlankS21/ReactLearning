@@ -75,6 +75,30 @@ class GameController {
       return res.status(500).json({ success: false, message: 'Не удалось выйти из игры', error: err.message });
     }
   }
+
+  async passTurn(req, res) {
+    const { game_id } = req.params;
+    const { login } = req.player;
+    try {
+      const result = await Game.passTurn(game_id, login);
+      
+      if (req.app.locals.broadcastGameState) {
+        req.app.locals.broadcastGameState(game_id);
+      }
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Ход пропущен',
+        data: result
+      });
+    } catch (err) {
+      console.error('passTurn error:', err);
+      return res.status(err.code || 500).json({ 
+        success: false, 
+        message: err.message || 'Не удалось пропустить ход'
+      });
+    }
+  }
 }
 
 module.exports = new GameController();

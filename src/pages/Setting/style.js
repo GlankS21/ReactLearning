@@ -29,7 +29,7 @@ export const WrapperRulesContent = styled.div`
   padding: 20px;
 
   h4 {
-    color: #4CAF50;
+    color: #eee;
     margin-top: 15px;
     margin-bottom: 10px;
     font-size: 18px;

@@ -367,6 +367,64 @@ class Game {
       client.release();
     }
   }
+
+  static async passTurn(game_id, login) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const game = await this.getGameById(game_id);
+      if (!game) throw { code: 404, message: 'Game not found' };
+      
+      if (game.current_turn_player_login !== login) {
+        throw { code: 403, message: 'Not your turn' };
+      }
+      
+      const players = await this.getAllPlayers(game_id);
+      const currentPlayer = players.find(p => p.login === login);
+      
+      if (!currentPlayer) {
+        throw { code: 404, message: 'Player not found' };
+      }
+      
+      await client.query(`
+        UPDATE dice SET roll_used = true, endtime = NOW() 
+        WHERE player_id = $1 AND roll_used = false
+      `, [currentPlayer.player_id]);
+      
+      const playerLogins = players.map(p => p.login);
+      const idx = playerLogins.indexOf(login);
+      const nextLogin = playerLogins[(idx + 1) % playerLogins.length];
+      const nextPlayer = players.find(p => p.login === nextLogin);
+      
+      await client.query(
+        'UPDATE games SET current_turn_player_login = $1 WHERE game_id = $2', 
+        [nextLogin, game_id]
+      );
+      
+      await client.query('DELETE FROM dice WHERE player_id = $1', [nextPlayer.player_id]);
+      
+      const roll = Math.floor(Math.random() * 6) + 1;
+      const endtime = new Date(Date.now() + game.step_time * 1000);
+      await client.query(`
+        INSERT INTO dice (player_id, number, roll_used, endtime) VALUES ($1, $2, false, $3)
+      `, [nextPlayer.player_id, roll, endtime]);
+      
+      await client.query('COMMIT');
+      
+      return { 
+        success: true, 
+        nextTurn: nextLogin,
+        dice: roll
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
 }
 
 module.exports = Game;

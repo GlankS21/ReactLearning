@@ -113,4 +113,52 @@ router.post('/move', authMiddleware, GameController.moveHorse);
  */
 router.post('/:game_id/leave', authMiddleware, GameController.leaveGame);
 
+/**
+ * @swagger
+ * /api/game/{game_id}/pass-turn:
+ *   post:
+ *     summary: Pass turn to next player
+ *     description: Pass turn when no valid moves are available. Login is automatically determined from auth token.
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: game_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Game ID
+ *     responses:
+ *       200:
+ *         description: Turn passed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                     nextTurn:
+ *                       type: string
+ *                       description: Login of the next player
+ *                     dice:
+ *                       type: integer
+ *                       description: Dice roll for the next player
+ *       403:
+ *         description: Not your turn
+ *       404:
+ *         description: Game or player not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:game_id/pass-turn', authMiddleware, GameController.passTurn);
+
 module.exports = router;
