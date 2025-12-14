@@ -35,7 +35,7 @@ const RoomPage = () => {
   useEffect(() => {
     if (!gameId || !login) return;
 
-    const socketURL = process.env.REACT_APP_SOCKET_URL || "http://localhost:8000";
+    const socketURL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
     const socket = io(socketURL, {
       query: {
