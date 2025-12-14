@@ -4,6 +4,7 @@ import roomAPI from "../../api/roomAPI";
 import gameAPI from "../../api/gameAPI";
 import * as style from "./style";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
+import DefaultAvatar from "../../components/DefaultAvatar/DefaultAvatar";
 
 const WaitingRoom = () => {
   const navigate = useNavigate();
@@ -18,8 +19,11 @@ const WaitingRoom = () => {
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
   const [rejoinLoading, setRejoinLoading] = useState(false);
+  const [notification, setNotification] = useState({ show: false, type: "", message: "", title: "" });
 
   const intervalRef = useRef(null);
+  const showNotification = (type, title, message) => { setNotification({ show: true, type, title, message }); };
+  const closeNotification = () => { setNotification({ show: false, type: "", message: "", title: "" });};
 
   useEffect(() => {
     if (!myLogin) return;
@@ -29,8 +33,9 @@ const WaitingRoom = () => {
       try {
         const gameInfo = JSON.parse(gameInfoStr);
         setActiveGame(gameInfo);
-      } catch (err) {
-        console.error('Error parsing game info:', err);
+      } 
+      catch (err) {
+        console.error(err);
       }
     }
   }, [myLogin]);
@@ -41,8 +46,9 @@ const WaitingRoom = () => {
       if (response.success && Array.isArray(response.data?.games)) {
         setRooms(response.data.games);
       }
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
+    } 
+    catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -52,9 +58,7 @@ const WaitingRoom = () => {
     fetchRooms();
     intervalRef.current = setInterval(fetchRooms, 1000);
     
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   const handleRejoinGame = async () => {
@@ -72,32 +76,28 @@ const WaitingRoom = () => {
         } else {
           localStorage.removeItem(`activeGame_${myLogin}`);
           setActiveGame(null);
-          alert('Вас удалили из игры');
+          showNotification("error", "Удалены из игры", "Вас удалили из игры");
         }
       } 
       else {
         localStorage.removeItem(`activeGame_${myLogin}`);
         setActiveGame(null);
-        alert('Игра закончилась !');
+        showNotification("info", "Игра завершена", "Игра закончилась!");
       }
     } 
     catch (err) {
       localStorage.removeItem(`activeGame_${myLogin}`);
       setActiveGame(null);
-      alert('Игра закончилась !');
+      showNotification("info", "Игра завершена", "Игра закончилась!");
     } finally {
       setRejoinLoading(false);
     }
   };
 
-  // ============================================
-  // Clear active game (permanent exit)
-  // ============================================
   const handleClearGame = async () => {
     if (!myLogin) return;
     
     try {
-      // Call API to leave game
       await gameAPI.leaveGame(activeGame.gameId, myLogin);
     } catch (err) {
       console.error('Error leaving game:', err);
@@ -111,8 +111,8 @@ const WaitingRoom = () => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) {
-        alert("Please sign in first");
-        navigate("/SignIn");
+        showNotification("warning", "Требуется вход", "Пожалуйста, войдите в систему");
+        setTimeout(() => navigate("/SignIn"), 1500);
         return;
       }
 
@@ -122,11 +122,11 @@ const WaitingRoom = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         navigate(`/room?gameId=${roomId}`);
       } else {
-        alert(response.message || "Failed to join room");
+        showNotification("error", "Ошибка", response.message || "Не удалось присоединиться к комнате");
       }
     } catch (error) {
       console.error("Error joining room:", error);
-      alert("Cannot connect to server");
+      showNotification("error", "Ошибка подключения", "Не удается подключиться к серверу");
     }
   };
 
@@ -134,8 +134,8 @@ const WaitingRoom = () => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) {
-        alert("Please sign in first");
-        navigate("/SignIn");
+        showNotification("warning", "Требуется вход", "Пожалуйста, войдите в систему");
+        setTimeout(() => navigate("/SignIn"), 1500);
         return;
       }
 
@@ -147,11 +147,11 @@ const WaitingRoom = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         await handleJoinRoom(gameId);
       } else {
-        alert(response.message || "Failed to create game");
+        showNotification("error", "Ошибка", response.message || "Не удалось создать игру");
       }
     } catch (error) {
       console.error("Error creating game:", error);
-      alert("Cannot connect to server");
+      showNotification("error", "Ошибка подключения", "Не удается подключиться к серверу");
     }
   };
 
@@ -163,6 +163,55 @@ const WaitingRoom = () => {
     setIsModalOpen(false);
     setNumPlayers("4");
     setTimePerMove("30");
+  };
+
+  const NotificationModal = () => {
+    if (!notification.show) return null;
+
+    const getIcon = () => {
+      switch (notification.type) {
+        case "success": return "✓";
+        case "error": return "✕";
+        case "warning": return "⚠";
+        case "info": return "ℹ";
+        default: return "ℹ";
+      }
+    };
+
+    const getColor = () => {
+      switch (notification.type) {
+        case "success": return "#4caf50";
+        case "error": return "#f44336";
+        case "warning": return "#ff9800";
+        case "info": return "#2196f3";
+        default: return "#2196f3";
+      }
+    };
+
+    return (
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000,}} onClick={closeNotification}>
+        <div
+          style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)", border: `2px solid ${getColor()}`, borderRadius: 15, padding: "30px 40px", maxWidth: 400, textAlign: "center", color: "white", }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: getColor(), display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 28, fontWeight: "bold",}}
+          >
+            {getIcon()}
+          </div>
+          <h3 style={{ margin: "0 0 10px", fontSize: 20, color: getColor() }}> {notification.title} </h3>
+          <p style={{ margin: "0 0 25px", fontSize: 16, color: "#ccc" }}> {notification.message}</p>
+          <button
+            onClick={closeNotification}
+            style={{ padding: "12px 40px", fontSize: 16, fontWeight: "bold", backgroundColor: getColor(), color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", transition: "all 0.3s",}}
+            onMouseEnter={(e) => (e.target.style.opacity = "0.8")}
+            onMouseLeave={(e) => (e.target.style.opacity = "1")}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -187,29 +236,12 @@ const WaitingRoom = () => {
         
         <style.WrapperTitle>ТУРНИР</style.WrapperTitle>
 
+        <NotificationModal />
+
         {activeGame && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}>
-            <div style={{
-              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: 15,
-              padding: 40,
-              maxWidth: 500,
-              textAlign: 'center',
-              color: 'white'
-            }}>
-              <h2 style={{ color: '#d19200ff', marginTop: 0, fontSize: 24 }}>Вы в игре !</h2>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+            <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 15, padding: 40, maxWidth: 500, textAlign: 'center', color: 'white'}}>
+              <h2 style={{ color: '#d19200ff', marginTop: 0, fontSize: 24 }}>Вы в игре!</h2>
               <p style={{ fontSize: 18, marginBottom: 10 }}>
                 У вас идёт игра. Хотите присоединиться снова?
               </p>
@@ -227,14 +259,12 @@ const WaitingRoom = () => {
                     fontWeight: 'bold',
                     backgroundColor: '#4caf50',
                     color: '#fff',
-                    borderColor: '#4caf50',
+                    border: 'none',
                     borderRadius: 8,
                     cursor: rejoinLoading ? 'not-allowed' : 'pointer',
                     opacity: rejoinLoading ? 0.7 : 1,
                     transition: 'all 0.3s'
                   }}
-                  onMouseEnter={(e) => !rejoinLoading && (e.target.style.borderColor = '#fff')}
-                  onMouseLeave={(e) => (e.target.style.borderColor = '#4caf50')}
                 >
                   {rejoinLoading ? '⏳ Loading...' : 'Присоединиться'}
                 </button>
@@ -254,8 +284,6 @@ const WaitingRoom = () => {
                     opacity: rejoinLoading ? 0.7 : 1,
                     transition: 'all 0.3s'
                   }}
-                  onMouseEnter={(e) => !rejoinLoading && (e.target.style.borderColor = '#fff')}
-                  onMouseLeave={(e) => (e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)')}
                 >
                   Выйти
                 </button>
@@ -288,20 +316,14 @@ const WaitingRoom = () => {
                     {Array.from({ length: room.player_amount }).map((_, index) => {
                       const player = room.players?.[index];
                       return (
-                        <style.WrapperPlayerSlot key={index} isEmpty={!player}>
+                        <style.WrapperPlayerSlot key={index}>
                           {player ? (
                             <>
-                              <style.WrapperPlayerAvatar
-                                src={`https://i.pravatar.cc/150?img=${index}`}
-                                alt={`Player ${index}`}
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
+                              <DefaultAvatar login={player.login} size={50} />
                               <style.WrapperPlayerName>{player.login}</style.WrapperPlayerName>
                             </>
                           ) : (
-                            <div />
+                            <style.WrapperEmptySlot />
                           )}
                         </style.WrapperPlayerSlot>
                       );

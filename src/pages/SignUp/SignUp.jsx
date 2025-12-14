@@ -7,23 +7,25 @@ import { LockOutlined, UserOutlined, ArrowRightOutlined } from "@ant-design/icon
 import { WrapperButtonFeild, WrapperInputFeild, WrapperPasswordFeild } from "./style"
 
 const SignUp = () => {
-  const [errorMessage, setErrorMessage] = useState("")
+  const [message, setMessage] = useState({ text: "", type: "" })
 
   const onFinish = async (values) => {
     try {
-      setErrorMessage("")
+      setMessage({ text: "", type: "" })
 
       const response = await authAPI.signup(values.fullName, values.password);
 
       if (response.success) {
-        alert("Sign up successful! You can now sign in.")
-        window.location.href = "/ludohome"
+        setMessage({ text: "Регистрация успешна!", type: "success" })
+        setTimeout(() => {
+          window.location.href = "/ludohome"
+        }, 1500)
       } else {
-        setErrorMessage(response.message || "Sign up failed")
+        setMessage({ text: response.message || "Ошибка регистрации", type: "error" })
       }
     } catch (error) {
       console.error("Sign up error:", error)
-      setErrorMessage("Логин уже существует !")
+      setMessage({ text: error.message || "Произошла ошибка", type: "error" })
     }
   }
 
@@ -54,7 +56,7 @@ const SignUp = () => {
             color: "#fff",
             fontWeight: "bold",
             fontSize: "30px",
-            margin: "20px 0",
+            margin: "20px 0 10px 0",
           }}
           className="responsive-title"
         >
@@ -87,19 +89,20 @@ const SignUp = () => {
                 prefix={<LockOutlined style={{ fontSize: "20px", color: "#666" }} />}
               />
             </Form.Item>
-
-            {errorMessage && (
+            
+            {message.text && (
               <div
                 style={{
-                  position: "absolute",
-                  bottom: "42px",
-                  left: 0,
-                  right: 0,
+                  marginBottom: "15px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: message.type === "success" ? "#52c41a" : "#ff4d4f",
                   textAlign: "center",
-                  color: "#ff4d4f"
+                  maxWidth: "400px",
+                  width: "100%",
                 }}
               >
-                {errorMessage}
+                {message.text}
               </div>
             )}
 

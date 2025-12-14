@@ -112,44 +112,37 @@ export const WrapperPlayerSlot = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-`
-
-export const WrapperPlayerAvatar = styled.img`
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  margin-bottom: 12px;
-  border: 3px solid #fff;
-  object-fit: cover;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  gap: 12px;
+  padding: 25px 20px;
+  transition: all 0.3s ease;
 
   @media (max-width: 768px) {
-    width: 80px;
-    height: 80px;
-    margin-bottom: 10px;
+    padding: 20px 15px;
+    gap: 10px;
+    min-height: 120px;
   }
 
   @media (max-width: 480px) {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 8px;
+    padding: 15px 10px;
+    gap: 8px;
+    min-height: 100px;
   }
 `
 
 export const WrapperPlayerName = styled.span`
   color: #f1f1f1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   text-align: center;
   word-break: break-word;
   max-width: 100%;
 
   @media (max-width: 768px) {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   @media (max-width: 480px) {
-    font-size: 11px;
+    font-size: 12px;
   }
 `
 

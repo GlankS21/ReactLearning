@@ -209,7 +209,6 @@ class Game {
       if (diceRoll === 6) {
         canRollAgain = true;
         await client.query(`DELETE FROM dice WHERE player_id = $1`, [horse.player_id]);
-
         const roll = Math.floor(Math.random() * 6) + 1;
         const endtime = new Date(Date.now() + game.step_time * 1000);
         await client.query(
@@ -225,12 +224,11 @@ class Game {
         nextTurnLogin = players[(idx + 1) % players.length];
 
         await client.query( `UPDATE games SET current_turn_player_login = $1 WHERE game_id = $2`, [nextTurnLogin, game_id]);
-
         const next = await client.query( `SELECT player_id FROM player WHERE game_id = $1 AND login = $2`, [game_id, nextTurnLogin]);
 
         if (next.rows[0]) {
           await client.query(`DELETE FROM dice WHERE player_id = $1`, [next.rows[0].player_id]);
-          
+        
           const roll = Math.floor(Math.random() * 6) + 1;
           const endtime = new Date(Date.now() + game.step_time * 1000);
           await client.query(
@@ -314,7 +312,6 @@ class Game {
 
           if (nextPlayerData.rows[0]) {
             await client.query('DELETE FROM dice WHERE player_id = $1', [nextPlayerData.rows[0].player_id]);
-          
             const roll = Math.floor(Math.random() * 6) + 1;
             const endtime = new Date(Date.now() + game.step_time * 1000);
             await client.query(
@@ -332,6 +329,41 @@ class Game {
       await client.query('ROLLBACK');
       throw err;
     } finally {
+      client.release();
+    }
+  }
+
+  static async deleteGame(game_id) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const players = await client.query( 'SELECT player_id FROM player WHERE game_id = $1', [game_id]);
+      const playerIds = players.rows.map(p => p.player_id);
+      
+      if (playerIds.length > 0) {
+        await client.query(
+          'DELETE FROM dice WHERE player_id = ANY($1)', [playerIds]
+        );
+        await client.query(
+          'DELETE FROM horses WHERE player_id = ANY($1)', [playerIds]
+        );
+      }
+      
+      await client.query('DELETE FROM player WHERE game_id = $1', [game_id]);
+      await client.query('DELETE FROM cells WHERE game_id = $1', [game_id]);
+      await client.query('DELETE FROM games WHERE game_id = $1', [game_id]);
+      
+      await client.query('COMMIT');
+      
+      console.log(`[Game.deleteGame] Game ${game_id} deleted successfully`);
+      return { success: true };
+    } 
+    catch (err) {
+      await client.query('ROLLBACK');
+      console.error(`[Game.deleteGame] Error:`, err);
+      throw err;
+    } 
+    finally {
       client.release();
     }
   }

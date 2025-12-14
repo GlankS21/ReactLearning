@@ -4,12 +4,13 @@ import io from "socket.io-client";
 import gameAPI from "../../api/gameAPI";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
 import BoardGameComponent from "../../components/BoardGameComponent/BoardGameComponent";
+import DefaultAvatar from "../../components/DefaultAvatar/DefaultAvatar";
+import DiceAnimation from "../../components/DiceAnimation/DiceAnimation";
 import {
   WrapperContainer,
   WrapperMenuButton,
   WrapperBoardContainer,
   WrapperPlayerSection,
-  WrapperPlayerAvatar,
   WrapperDiceIcon,
   WrapperTimerCircle,
   WrapperTimerText,
@@ -17,123 +18,6 @@ import {
   WrapperMenuIcon,
   WrapperDiceDot,
 } from "./style";
-
-// --------3D DICE---------
-const DiceAnimation = ({ number, isRolling }) => {
-  const getRotation = (num) => {
-    const rotations = {
-      1: 'rotateX(0deg) rotateY(0deg)',
-      2: 'rotateX(0deg) rotateY(-90deg)',
-      3: 'rotateX(0deg) rotateY(-180deg)',
-      4: 'rotateX(0deg) rotateY(90deg)',
-      5: 'rotateX(-90deg) rotateY(0deg)',
-      6: 'rotateX(90deg) rotateY(0deg)',
-    };
-    return rotations[num] || rotations[1];
-  };
-
-  const renderDots = (num) => {
-    const dotStyle = {
-      width: '5px',
-      height: '5px',
-      backgroundColor: '#333',
-      borderRadius: '50%',
-    };
-
-    const dotsConfig = {
-      1: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-      ],
-      2: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '25%', left: '25%' }} />,
-        <div key="2" style={{ ...dotStyle, position: 'absolute', bottom: '25%', right: '25%' }} />
-      ],
-      3: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '25%', left: '25%' }} />,
-        <div key="2" style={{ ...dotStyle, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />,
-        <div key="3" style={{ ...dotStyle, position: 'absolute', bottom: '25%', right: '25%' }} />
-      ],
-      4: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '25%', left: '25%' }} />,
-        <div key="2" style={{ ...dotStyle, position: 'absolute', top: '25%', right: '25%' }} />,
-        <div key="3" style={{ ...dotStyle, position: 'absolute', bottom: '25%', left: '25%' }} />,
-        <div key="4" style={{ ...dotStyle, position: 'absolute', bottom: '25%', right: '25%' }} />
-      ],
-      5: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '25%', left: '25%' }} />,
-        <div key="2" style={{ ...dotStyle, position: 'absolute', top: '25%', right: '25%' }} />,
-        <div key="3" style={{ ...dotStyle, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />,
-        <div key="4" style={{ ...dotStyle, position: 'absolute', bottom: '25%', left: '25%' }} />,
-        <div key="5" style={{ ...dotStyle, position: 'absolute', bottom: '25%', right: '25%' }} />
-      ],
-      6: [
-        <div key="1" style={{ ...dotStyle, position: 'absolute', top: '25%', left: '25%' }} />,
-        <div key="2" style={{ ...dotStyle, position: 'absolute', top: '25%', right: '25%' }} />,
-        <div key="3" style={{ ...dotStyle, position: 'absolute', top: '50%', left: '25%', transform: 'translateY(-50%)' }} />,
-        <div key="4" style={{ ...dotStyle, position: 'absolute', top: '50%', right: '25%', transform: 'translateY(-50%)' }} />,
-        <div key="5" style={{ ...dotStyle, position: 'absolute', bottom: '25%', left: '25%' }} />,
-        <div key="6" style={{ ...dotStyle, position: 'absolute', bottom: '25%', right: '25%' }} />
-      ],
-    };
-
-    return dotsConfig[num] || dotsConfig[1];
-  };
-
-  const diceStyle = {
-    width: '40px',
-    height: '40px',
-    perspective: '1000px',
-    cursor: 'default',
-  };
-
-  const cubeStyle = {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-    transformStyle: 'preserve-3d',
-    transform: isRolling ? 'rotateX(720deg) rotateY(720deg)' : getRotation(number),
-    transition: isRolling ? 'none' : 'transform 0.6s ease-out',
-  };
-
-  const faceBaseStyle = {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f1f1f1',
-    border: '2px solid #333',
-    borderRadius: '4px',
-  };
-
-  const faces = [
-    { num: 1, transform: 'rotateY(0deg) translateZ(20px)' },
-    { num: 2, transform: 'rotateY(90deg) translateZ(20px)' },
-    { num: 3, transform: 'rotateY(180deg) translateZ(20px)' },
-    { num: 4, transform: 'rotateY(-90deg) translateZ(20px)' },
-    { num: 5, transform: 'rotateX(90deg) translateZ(20px)' },
-    { num: 6, transform: 'rotateX(-90deg) translateZ(20px)' },
-  ];
-
-  return (
-    <div style={diceStyle}>
-      <div style={cubeStyle}>
-        {faces.map(face => (
-          <div
-            key={face.num}
-            style={{
-              ...faceBaseStyle,
-              transform: face.transform,
-            }}
-          >
-            {renderDots(face.num)}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const GamePlay = () => {
   const navigate = useNavigate();
@@ -148,7 +32,8 @@ const GamePlay = () => {
   const [winner, setWinner] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
   const [error, setError] = useState(null);
-  const [rollingDice, setRollingDice] = useState(null);
+  const [isRollingDice, setIsRollingDice] = useState(false);
+  const [canClickHorse, setCanClickHorse] = useState(false); 
 
   const socketRef = useRef(null);
   const timerRef = useRef(null);
@@ -158,6 +43,7 @@ const GamePlay = () => {
   const lastAutoPassTimeRef = useRef(0);
   const prevCurrentTurnRef = useRef(null);
   const prevDiceRef = useRef(null);
+  const diceRollIdRef = useRef(0);
 
   // ---------SOCKET----------
   useEffect(() => {
@@ -203,76 +89,66 @@ const GamePlay = () => {
     };
   }, [gameId, myLogin, authToken]);
 
-  useEffect(() => {
-    if (!gameId || !myLogin) return;
-    const handleBeforeUnload = () => {
-      const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:8000';
-      const payload = JSON.stringify({ game_id: gameId, login: myLogin });
-      
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(
-          `${serverUrl}/api/game/${gameId}/leave`,
-          payload
-        );
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [gameId, myLogin]);
+  const handleDiceAnimationEnd = useCallback(() => {
+    setIsRollingDice(false);
+    setCanClickHorse(true);  
+  }, []);
 
   // ---------STATUS-----------
   const fetchGameState = useCallback(async () => {
-    if (!gameId) return;
+  if (!gameId) return;
 
-    try {
-      const response = await gameAPI.getGameState(gameId);
-      if (!response?.success) {
-        if (response?.code === 404) {
-          setError("Игра закончилась");
-          if (pollRef.current) clearInterval(pollRef.current);
-          setTimeout(() => navigate("/ludohome"), 2000);
-        }
-        return;
-      }
-
-      const isStillInGame = response.data?.players?.some(p => p.login === myLogin);
-      if (!isStillInGame) {
-        setError("Вы удалены из игры");
+  try {
+    const response = await gameAPI.getGameState(gameId);
+    if (!response?.success) {
+      if (response?.code === 404) {
+        setError("Игра закончилась");
         if (pollRef.current) clearInterval(pollRef.current);
         setTimeout(() => navigate("/ludohome"), 2000);
-        return;
       }
-
-      const turnChanged = prevCurrentTurnRef.current !== response.data?.current_turn;
-      const diceChanged = prevDiceRef.current !== response.data?.dice;
-
-      if (response.data?.dice && (turnChanged || diceChanged)) {
-        setRollingDice(response.data.dice);
-        
-        setTimeout(() => {
-          setRollingDice(null);
-        }, 1000);
-      }
-
-      prevCurrentTurnRef.current = response.data?.current_turn;
-      prevDiceRef.current = response.data?.dice;
-
-      setGameState(response.data);
-      setError(null);
-
-      if (response.data?.winner) {
-        setWinner(response.data.winner);
-      }
-    } catch (err) {
-      setError(err.message);
+      return;
     }
-  }, [gameId, myLogin, navigate]);
 
-  // ----------ROLL DICE --------------
+    const isStillInGame = response.data?.players?.some(p => p.login === myLogin);
+    if (!isStillInGame) {
+      setError("Вы удалены из игры");
+      if (pollRef.current) clearInterval(pollRef.current);
+      setTimeout(() => navigate("/ludohome"), 2000);
+      return;
+    }
+
+    const turnChanged = prevCurrentTurnRef.current !== response.data?.current_turn;
+    const diceChanged = prevDiceRef.current !== response.data?.dice;
+    const timeReset = response.data?.remaining_time >= response.data?.step_time - 1;
+    const hadPreviousDice = prevDiceRef.current !== null;
+    
+    const shouldTriggerAnimation = response.data?.dice && (
+      turnChanged || 
+      diceChanged || 
+      (timeReset && hadPreviousDice && canClickHorse)  
+    );
+
+    if (shouldTriggerAnimation) {
+      setCanClickHorse(false);
+      setIsRollingDice(true);
+      diceRollIdRef.current += 1;
+    }
+
+    prevCurrentTurnRef.current = response.data?.current_turn;
+    prevDiceRef.current = response.data?.dice;
+
+    setGameState(response.data);
+    setError(null);
+
+    if (response.data?.winner) {
+      setWinner(response.data.winner);
+    }
+  } catch (err) {
+    setError(err.message);
+  }
+}, [gameId, myLogin, navigate, canClickHorse]);
+
+  // ----------POLL --------------
   useEffect(() => {
     if (!gameId) return;
     
@@ -330,7 +206,7 @@ const GamePlay = () => {
 
   // --------------MOVE----------------
   const handleMoveHorse = useCallback(async (horseId) => {
-    if (isMoving || !gameState) return false;
+    if (isMoving || !gameState || !canClickHorse) return false;  // Check canClickHorse
     setIsMoving(true);
     setError(null);
     try {
@@ -338,6 +214,7 @@ const GamePlay = () => {
 
       if (response?.success) {
         setError(null);
+        setCanClickHorse(false);  // Disable sau khi move
         
         await new Promise(resolve => setTimeout(resolve, 500));
         await fetchGameState();
@@ -355,7 +232,7 @@ const GamePlay = () => {
       setIsMoving(false);
       return false;
     }
-  }, [isMoving, gameState, fetchGameState]);
+  }, [isMoving, gameState, canClickHorse, fetchGameState]);
 
   // -----------EXIT---------------
   const handleExit = useCallback(() => {
@@ -365,6 +242,10 @@ const GamePlay = () => {
     lastAutoPassTimeRef.current = 0;
 
     if (gameId && myLogin) {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('playerLeaving', { gameId, login: myLogin });
+      }
+      
       gameAPI.leaveGame(gameId, myLogin).catch(err => {
         console.error('[handleExit]', err);
       });
@@ -436,9 +317,9 @@ const GamePlay = () => {
   const currentPlayer = gameState.players.find(p => p.is_turn);
   const isMyTurn = currentPlayer?.login === myLogin;
   const diceRoll = gameState.dice;
-  const canMove = isMyTurn && diceRoll;
+  // canMove bây giờ phụ thuộc vào canClickHorse
+  const canMove = isMyTurn && diceRoll && canClickHorse && !isRollingDice;
 
-  // -----------TIME----------
   const renderTimer = (player, position) => {
     if (!player.is_turn) return null;
     const percentage = (gameState.remaining_time / gameState.step_time) * 100;
@@ -449,10 +330,8 @@ const GamePlay = () => {
     );
   };
 
-  // -----------DICE----------
   const renderDice = (player) => {
     const isCurrent = currentPlayer?.login === player.login;
-    const isAnimating = isCurrent && rollingDice !== null;
     
     return (
       <div
@@ -468,8 +347,10 @@ const GamePlay = () => {
       >
         {isCurrent ? (
           <DiceAnimation 
-            number={rollingDice || diceRoll || 1} 
-            isRolling={isAnimating}
+            key={diceRollIdRef.current}  // Key để force re-render khi roll mới
+            number={diceRoll || 1} 
+            isRolling={isRollingDice}
+            onAnimationEnd={handleDiceAnimationEnd}
           />
         ) : (
           <WrapperDiceIcon>
@@ -486,7 +367,6 @@ const GamePlay = () => {
   return (
     <BackgroundComponent opacity={0.95}>
       <WrapperContainer>
-        {/* Menu button */}
         <WrapperMenuButton onClick={() => setShowExit(prev => !prev)}>
           <WrapperMenuIcon />
           <WrapperMenuIcon />
@@ -499,7 +379,6 @@ const GamePlay = () => {
           </WrapperExitMenu>
         )}
 
-        {/* Rules button */}
         <button
           onClick={() => setShowRules(true)}
           style={{
@@ -524,7 +403,6 @@ const GamePlay = () => {
           ?
         </button>
 
-        {/* Rules modal */}
         {showRules && (
           <div
             onClick={() => setShowRules(false)}
@@ -587,46 +465,30 @@ const GamePlay = () => {
                   color: "#333",
                 }}
               >
-                <h4 style={{ color: "#4CAF50", marginTop: 0, marginBottom: 10 }}>
-                  Цель игры
-                </h4>
+                <h4 style={{ color: "#4CAF50", marginTop: 0, marginBottom: 10 }}>Цель игры</h4>
                 <p style={{ lineHeight: 1.6 }}>
                   Привести все 4 свои фишки из дома к финишу раньше других игроков.
                 </p>
-
-                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>
-                  Как играть
-                </h4>
+                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>Как играть</h4>
                 <ul style={{ paddingLeft: 20, lineHeight: 1.6 }}>
                   <li>Каждый игрок имеет 4 фишки одного цвета</li>
                   <li>Кубик автоматически бросается в начале хода</li>
                   <li>Если выпало 6, игрок получает дополнительный бросок</li>
                   <li>Фишки движутся по часовой стрелке вокруг игрового поля</li>
                 </ul>
-
-                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>
-                  Съедание фишек
-                </h4>
+                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>Съедание фишек</h4>
                 <p style={{ lineHeight: 1.6 }}>
-                  Если ваша фишка остановилась на клетке с фишкой соперника, фишка соперника
-                  возвращается домой.
+                  Если ваша фишка остановилась на клетке с фишкой соперника, фишка соперника возвращается домой.
                 </p>
-
-                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>
-                  Безопасные клетки
-                </h4>
+                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>Безопасные клетки</h4>
                 <p style={{ lineHeight: 1.6 }}>
                   Клетки со звёздочкой считаются безопасными — фишки на них нельзя съесть.
                 </p>
-
-                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>
-                  Победа
-                </h4>
+                <h4 style={{ color: "#4CAF50", marginTop: 15, marginBottom: 10 }}>Победа</h4>
                 <p style={{ lineHeight: 1.6, marginBottom: 0 }}>
                   Побеждает тот, кто первым приведёт все 4 фишки к финишу.
                 </p>
               </div>
-
               <button
                 onClick={() => setShowRules(false)}
                 style={{
@@ -640,10 +502,7 @@ const GamePlay = () => {
                   fontSize: 18,
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "all 0.2s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#045566")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#02343E")}
               >
                 ЗАКРЫТЬ
               </button>
@@ -651,7 +510,6 @@ const GamePlay = () => {
           </div>
         )}
 
-        {/* Board and players */}
         <WrapperBoardContainer>
           {gameState.players.map((player) => (
             <WrapperPlayerSection 
@@ -660,10 +518,9 @@ const GamePlay = () => {
             >
               {renderTimer(player, ["left", "left", "right", "right"][player.player_number - 1])}
               {renderDice(player)}
-              <WrapperPlayerAvatar
-                src={player.avatar || `https://i.pravatar.cc/150?img=${player.player_number}`}
-                alt={player.login}
-                title={player.login}
+              <DefaultAvatar 
+                login={player.login} 
+                size={50}
                 style={{
                   border: player.is_turn ? "3px solid #FFD700" : "2px solid white",
                   opacity: player.is_turn ? 1 : 0.7,
@@ -677,13 +534,12 @@ const GamePlay = () => {
             gameState={gameState}
             onMoveHorse={handleMoveHorse}
             diceRoll={diceRoll}
-            isMyTurn={canMove}
+            isMyTurn={isMyTurn}
             myLogin={myLogin}
-            canMove={canMove}
+            canMove={canMove}  // Truyền canMove để BoardGameComponent biết khi nào hiển thị border vàng
           />
         </WrapperBoardContainer>
 
-        {/* Error message */}
         {error && (
           <div style={{
             position: 'fixed',

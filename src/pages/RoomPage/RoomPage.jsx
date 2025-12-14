@@ -9,12 +9,12 @@ import {
   WrapperRoomDetails,
   WrapperPlayersGrid,
   WrapperPlayerSlot,
-  WrapperPlayerAvatar,
   WrapperPlayerName,
   WrapperButtonGroup,
   WrapperLeaveButton,
 } from "./style";
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent";
+import DefaultAvatar from "../../components/DefaultAvatar/DefaultAvatar";
 
 const RoomPage = () => {
   const navigate = useNavigate();
@@ -31,24 +31,15 @@ const RoomPage = () => {
   const socketRef = useRef(null);
   const countdownRef = useRef(null);
   const intervalRef = useRef(null);
-  const isReloadingRef = useRef(false);
-
-  // ============================================
-  // Socket.IO Connection (chỉ để handle unload)
-  // ============================================
+  const isNavigatingToGameRef = useRef(false);  
   useEffect(() => {
-    console.log("Room Socket useEffect - gameId:", gameId, "login:", login);
-
-    if (!gameId || !login) {
-      console.log("Missing gameId or login, returning");
-      return;
-    }
+    if (!gameId || !login) return;
 
     const socketURL = process.env.REACT_APP_SOCKET_URL || "http://localhost:8000";
 
     const socket = io(socketURL, {
       query: {
-        roomId: gameId,
+        roomId: gameId.toString(),
         login: login,
       },
       reconnection: true,
@@ -68,12 +59,18 @@ const RoomPage = () => {
       console.log("Room socket disconnected");
     });
 
+    socket.on("playerLeft", (data) => {
+      console.log("Player left:", data);
+    });
+
     socket.on("connect_error", (error) => {
       console.error("Room socket connection error:", error);
     });
 
     return () => {
-      // Don't disconnect on unmount
+      if (socket && !isNavigatingToGameRef.current) {
+        socket.disconnect();
+      }
     };
   }, [gameId, login]);
 
@@ -97,8 +94,7 @@ const RoomPage = () => {
       const playerList = response.data.players || [];
       const isInRoom = playerList.some(p => p.login === login);
 
-      // Nếu bị xóa khỏi phòng
-      if (!isInRoom) {
+      if (!isInRoom && !isNavigatingToGameRef.current) {
         setError("Вы были удалены из комнаты");
         if (intervalRef.current) clearInterval(intervalRef.current);
         setTimeout(() => navigate("/ludohome"), 2000);
@@ -115,9 +111,16 @@ const RoomPage = () => {
       setPlayers(playerList);
       setError(null);
 
+      // Khi game started, đánh dấu đang chuyển sang game
       if (response.data.status === "started") {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
+        isNavigatingToGameRef.current = true;  // Đánh dấu trước khi navigate
+        
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (countdownRef.current) clearTimeout(countdownRef.current);
+
         navigate(`/gameplay?gameId=${gameId}`);
       }
     } catch (err) {
@@ -141,94 +144,11 @@ const RoomPage = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [gameId, login, fetchRoomDetails, navigate]);
-
-  // ============================================
-  // Unload Handlers (Socket + Beacon)
-  // ============================================
-  useEffect(() => {
-    if (!gameId) return;
-
-    const sessionKey = `room_reload_${gameId}`;
-    const sessionId = Math.random().toString(36);
-    sessionStorage.setItem(sessionKey, sessionId);
-
-    const handleBeforeUnload = () => {
-      const savedSessionId = sessionStorage.getItem(sessionKey);
-      isReloadingRef.current = !!savedSessionId;
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [gameId]);
-
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      // Khi tab bị ẩn hoặc không focus
-      if (document.hidden) {
-        console.log("Tab hidden/closed, leaving room");
-        if (!gameId || !login) return;
-
-        // Gọi API để leave room
-        try {
-          console.log("Calling leave room API");
-          await fetch(`http://localhost:8000/api/room/leave`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify({ game_id: gameId, login }),
-            keepalive: true
-          });
-          console.log("Leave room API called successfully");
-        } catch (err) {
-          console.error('Leave room API failed:', err);
-        }
-      }
-    };
-
-    const handleUnload = () => {
-      if (!gameId || !login) return;
-
-      if (!isReloadingRef.current) {
-        console.log("Unload event, leaving room");
-        try {
-          fetch(`http://localhost:8000/api/room/leave`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify({ game_id: gameId, login }),
-            keepalive: true
-          }).catch(err => console.error('Leave room fetch failed:', err));
-        } catch (err) {
-          console.error('Leave room error:', err);
-        }
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("unload", handleUnload);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("unload", handleUnload);
-    };
-  }, [gameId, login]);
-
-  // ============================================
-  // Leave Room Handler
-  // ============================================
   const handleLeaveRoom = useCallback(async () => {
     try {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearTimeout(countdownRef.current);
 
-      // Emit socket event
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('playerLeavingRoom', { roomId: gameId, login: login });
       }
@@ -336,19 +256,15 @@ const RoomPage = () => {
   return (
     <BackgroundComponent opacity={0.95}>
       <WrapperContainer>
-        {/* Кнопка назад */}
         <WrapperBackButton onClick={handleLeaveRoom}>←</WrapperBackButton>
 
-        {/* Заголовок */}
         <WrapperTitle>КОМНАТА {room.game_id}</WrapperTitle>
 
-        {/* Информация о комнате */}
         <WrapperRoomDetails>
           <span>Игроки: {players.length}/{room.player_amount}</span>
           <span>Время на ход: {room.step_time}с</span>
         </WrapperRoomDetails>
 
-        {/* Статус комнаты */}
         {isRoomFull && (
           <div style={{
             textAlign: 'center',
@@ -362,30 +278,26 @@ const RoomPage = () => {
           </div>
         )}
 
-        {/* Сетка игроков */}
         <WrapperPlayersGrid>
           {Array.from({ length: room.player_amount }).map((_, index) => {
             const player = players[index];
             return (
-              <WrapperPlayerSlot key={index} $isEmpty={!player}>
+              <WrapperPlayerSlot key={index}>
                 {player ? (
                   <>
-                    <WrapperPlayerAvatar
-                      src={`https://i.pravatar.cc/150?img=${index}`}
-                      alt={player.login}
-                      onError={(e) => (e.currentTarget.src = "/placeholder.svg")}
-                    />
-                    <WrapperPlayerName>{player.login || "Неизвестно"}</WrapperPlayerName>
+                    <DefaultAvatar login={player.login} size={80} />
+                    <WrapperPlayerName>{player.login}</WrapperPlayerName>
                   </>
                 ) : (
-                  <div style={{ color: "#999", textAlign: "center" }}>⏳ Ожидание...</div>
+                  <WrapperPlayerName style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    Ожидание...
+                  </WrapperPlayerName>
                 )}
               </WrapperPlayerSlot>
             );
           })}
         </WrapperPlayersGrid>
 
-        {/* Кнопка выхода */}
         <WrapperButtonGroup>
           <WrapperLeaveButton onClick={handleLeaveRoom}>
             ВЫЙТИ ИЗ КОМНАТЫ

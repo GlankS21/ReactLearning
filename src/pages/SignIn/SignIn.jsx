@@ -7,24 +7,28 @@ import { LockOutlined, UserOutlined, ArrowRightOutlined } from "@ant-design/icon
 import { WrapperButtonFeild, WrapperInputFeild, WrapperPasswordFeild } from "./style"
 
 const SignInPage = () => {
-  const [errorMessage, setErrorMessage] = useState("")
+  const [message, setMessage] = useState({ text: "", type: "" })
 
   const onFinish = async (values) => {
     try {
-      setErrorMessage("")
+      setMessage({ text: "", type: "" })
 
       const response = await authAPI.signin(values.username, values.password);
 
       if (response.success) {
         localStorage.setItem("authToken", response.data.token)
         localStorage.setItem("login", response.data.login)
-        window.location.href = "/ludohome"
-      } else {
-        setErrorMessage(response.message || "Invalid username or password")
+        setTimeout(() => {
+          window.location.href = "/ludohome"
+        }, 1500)
+      } 
+      else {
+        setMessage({ text: response.message || "Неверный логин или пароль", type: "error" })
       }
-    } catch (error) {
+    } 
+    catch (error) {
       console.error("Sign in error:", error)
-      setErrorMessage("Cannot connect to server")
+      setMessage({ text: "Не удается подключиться к серверу", type: "error" })
     }
   }
 
@@ -34,47 +38,16 @@ const SignInPage = () => {
 
   return (
     <BackgroundComponent opacity={0.8}>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-        }}
-      >
-        <img
-          style={{ height: "300px", width: "auto", objectFit: "contain" }}
-          src={ludoBoard || "/placeholder.svg"}
-          alt="Ludo Board"
-          className="responsive-image"
-        />
-        <div
-          style={{
-            textTransform: "uppercase",
-            color: "#fff",
-            fontWeight: "bold",
-            fontSize: "30px",
-            margin: "20px 0",
-          }}
-          className="responsive-title"
-        >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px",}}>
+        <img style={{ height: "300px", width: "auto", objectFit: "contain" }} src={ludoBoard || "/placeholder.svg"} alt="Ludo Board" className="responsive-image"/>
+        <div style={{ textTransform: "uppercase", color: "#fff", fontWeight: "bold", fontSize: "30px", margin: "20px 0 10px 0",}} className="responsive-title">
           Логин
         </div>
 
         <div style={{ position: "relative", width: "100%", maxWidth: "400px" }}>
-          <Form
-            name="signinForm"
-            initialValues={{ remember: true }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="off"
-          >
-            <Form.Item name="username" rules={[{ required: true, message: "Please input your username!" }]}>
-              <WrapperInputFeild
-                placeholder="Логин"
-                prefix={<UserOutlined style={{ fontSize: "20px", color: "#666" }} />}
-              />
+          <Form name="signinForm" initialValues={{ remember: true }} onFinish={onFinish} onFinishFailed={onFinishFailed} autoComplete="off">
+            <Form.Item name="username" rules={[{ required: true, message: "Пожалуйста, введите свой логин!" }]}>
+              <WrapperInputFeild placeholder="Логин" prefix={<UserOutlined style={{ fontSize: "20px", color: "#666" }} />} />
             </Form.Item>
             <Form.Item
               name="password"
@@ -83,18 +56,23 @@ const SignInPage = () => {
                 { min: 6, message: "Пароль должен содержать не менее 6 символов!" },
               ]}
             >
-              <WrapperPasswordFeild
-                placeholder="Пароль"
-                prefix={<LockOutlined style={{ fontSize: "20px", color: "#666" }} />}
-              />
+              <WrapperPasswordFeild placeholder="Пароль" prefix={<LockOutlined style={{ fontSize: "20px", color: "#666" }} />}/>
             </Form.Item>
-
-            {errorMessage && (
-              <div style={{ position: "absolute", bottom: "42px", left: 0, right: 0, textAlign: "center", color: "#ff4d4f"}}>
-                {errorMessage}
+            {message.text && (
+              <div
+                style={{
+                  marginBottom: "15px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: message.type === "success" ? "#52c41a" : "#ff4d4f",
+                  textAlign: "center",
+                  maxWidth: "400px",
+                  width: "100%",
+                }}
+              >
+                {message.text}
               </div>
             )}
-
             <Form.Item style={{ marginBottom: "0" }}>
               <WrapperButtonFeild type="primary" htmlType="submit">
                 Логин <ArrowRightOutlined />

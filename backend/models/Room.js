@@ -187,6 +187,18 @@ class Room {
       );
     }
   }
+  
+  static async getRoomStatus(gameId) {
+    try {
+      const result = await pool.query(
+        'SELECT status FROM games WHERE game_id = $1', [gameId]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
 }
 
 module.exports = Room;

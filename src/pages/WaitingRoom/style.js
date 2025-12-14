@@ -154,44 +154,56 @@ export const WrapperPlayerSlot = styled.div`
   gap: 8px;
   width: 80px;
 
-  > div:first-child {
-    width: 80px;
-    height: 80px;
-    background-color: ${(props) => (props.isEmpty ? "#C9A961" : "transparent")};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  }
-
   @media (max-width: 768px) {
     width: 70px;
     gap: 6px;
-
-    > div:first-child {
-      width: 70px;
-      height: 70px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-    }
   }
 
   @media (max-width: 480px) {
     width: 60px;
     gap: 5px;
+  }
+`
 
-    > div:first-child {
-      width: 60px;
-      height: 60px;
-    }
+export const WrapperEmptySlot = styled.div`
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+  @media (max-width: 768px) {
+    width: 45px;
+    height: 45px;
+  }
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
   }
 `
 
 export const WrapperPlayerAvatar = styled.img`
-  width: 100%;
-  height: 100%;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+  @media (max-width: 768px) {
+    width: 45px;
+    height: 45px;
+  }
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
+  }
 `
 
 export const WrapperPlayerName = styled.div`

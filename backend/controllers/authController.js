@@ -4,14 +4,12 @@ class AuthController{
   async signup(req, res){
     try{
       const {login, password} = req.body;
-      // nếu không nhập đủ login + password
       if(!login || !password){
         return res.status(400).json({
           success: false,
           message: "Требуется логин и пароль",
         });
       }
-      // nếu login đã tồn tại
       const existingUser = await User.findByLogin(login);
       if(existingUser){
         return res.status(400).json({
@@ -19,7 +17,6 @@ class AuthController{
           message: "Логин уже существует",
         });
       }
-      // tạo user
       const user = await User.create(login, password);
       const token = User.generateToken();
       await User.createToken(token, login);
@@ -41,15 +38,13 @@ class AuthController{
   async signin(req, res){
     try{
       const {login, password} = req.body;
-      // nếu không nhập đủ login + password
       if(!login || !password){
         return res.status(400).json({
           success: false,
-          message: "Требуется логин и парольd",
+          message: "Требуется логин и пароль",
         });
       }
       await User.deleteExpiredTokens();
-      // tìm login theo password
       const user = await User.findByLoginAndPassword(login, password);
       if(!user){
         return res.status(401).json({
@@ -57,7 +52,6 @@ class AuthController{
           message: "Неверный логин или пароль",
         });
       }
-      // tạo token mới
       const token = User.generateToken();
       await User.createToken(token, login);
 

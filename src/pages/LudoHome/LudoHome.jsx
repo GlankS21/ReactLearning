@@ -2,7 +2,6 @@
 import { useState } from "react"
 import {
   WrapperContainer,
-  WrapperAvatar,
   WrapperContent,
   WrapperLudoIcon,
   WrapperButtonsSection,
@@ -12,13 +11,14 @@ import {
 } from "./style"
 import BackgroundComponent from "../../components/BackgroundComponent/BackgroundComponent"
 import ludo from "../../assets/image/Ludohome_img.png"
-import avatar from "../../assets/image/avatar.png"
 import game_style from "../../assets/image/Ludohome_style_game.png"
 import { useNavigate } from "react-router-dom"
+import DefaultAvatar from "../../components/DefaultAvatar/DefaultAvatar"
 
 const LudoHome = () => {
   const navigate = useNavigate()
   const [showRules, setShowRules] = useState(false)
+  const login = localStorage.getItem("login")
 
   const handleGameModeClick = (players) => {
     console.log(`Selected ${players} players mode`)
@@ -29,41 +29,19 @@ const LudoHome = () => {
     <BackgroundComponent opacity={0.95}>
       <button
         onClick={() => setShowRules(true)}
-        style={{
-          position: "fixed",
-          right: 20,
-          top: 20,
-          width: 50,
-          height: 50,
-          borderRadius: "50%",
-          backgroundColor: "#FFD700",
-          border: "none",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 24,
-          fontWeight: "bold",
-          cursor: "pointer",
-          zIndex: 100,
-        }}
-      >? </button>
+        style={{ position: "fixed", right: 20, top: 20, width: 52, height: 52, borderRadius: "50%", backgroundColor: "#FFD700", border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: "bold", cursor: "pointer", zIndex: 100,}}
+      >?</button>
+      <div
+        onClick={() => navigate("/setting")}
+        style={{ position: "fixed", left: 20, top: 20, cursor: "pointer", zIndex: 100, display: "flex", alignItems: "center", gap: 10,}}
+      >
+        <DefaultAvatar login={login} size={50} />
+      </div>
       
       {showRules && (
         <div
           onClick={() => setShowRules(false)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,}}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -78,7 +56,6 @@ const LudoHome = () => {
               position: "relative",
             }}
           >
-            {/* Close Button */}
             <button
               onClick={() => setShowRules(false)}
               style={{
@@ -102,7 +79,6 @@ const LudoHome = () => {
               ×
             </button>
 
-            {/* Title */}
             <h2 style={{ marginTop: 0, marginBottom: 25, color: "#333", textAlign: "center" }}>
               Правила игры Лудо
             </h2>
@@ -154,7 +130,6 @@ const LudoHome = () => {
               </p>
             </div>
 
-            {/* Close Button at Bottom */}
             <button
               onClick={() => setShowRules(false)}
               style={{
@@ -180,20 +155,6 @@ const LudoHome = () => {
       )}
 
       <WrapperContainer>
-        <WrapperAvatar
-          src={avatar}
-          alt="User Avatar"
-          onClick={() => (window.location.href = "/setting")}
-          style={{ cursor: "pointer" }}
-          onError={(e) => {
-            e.currentTarget.style.display = "none"
-            if (e.currentTarget.parentElement) {
-              e.currentTarget.parentElement.innerHTML =
-                '<span style="color: white; font-weight: 600; font-size: 18px;">U</span>'
-            }
-          }}
-        />
-
         <WrapperContent>
           <WrapperLudoIcon src={ludo || "/placeholder.svg"} alt="ludo icon"></WrapperLudoIcon>
 
