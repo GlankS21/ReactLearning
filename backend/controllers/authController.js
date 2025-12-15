@@ -1,4 +1,3 @@
-const { message } = require('antd');
 const User = require('../models/User')
 
 class AuthController{
