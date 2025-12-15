@@ -17,6 +17,8 @@ const SignUp = () => {
 
       if (response.success) {
         setMessage({ text: "Регистрация успешна!", type: "success" })
+        localStorage.setItem("authToken", response.data.token)
+        localStorage.setItem("login", response.data.login)
         setTimeout(() => {
           window.location.href = "/ludohome"
         }, 1500)

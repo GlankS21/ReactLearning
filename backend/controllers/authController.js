@@ -1,3 +1,4 @@
+const { message } = require('antd');
 const User = require('../models/User')
 
 class AuthController{
@@ -45,6 +46,14 @@ class AuthController{
         });
       }
       await User.deleteExpiredTokens();
+      const existingUser = await User.findByLogin(login);
+      if(!existingUser){
+        return res.status(401).json({
+          success: false,
+          message: "Логин не существует",
+        });
+      }
+
       const user = await User.findByLoginAndPassword(login, password);
       if(!user){
         return res.status(401).json({
