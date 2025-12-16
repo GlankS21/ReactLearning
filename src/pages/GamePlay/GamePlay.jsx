@@ -105,9 +105,6 @@ const GamePlay = () => {
     };
   }, []);
 
-  // ============================================
-  // Kiểm tra xem có ngựa nào di chuyển được không
-  // ============================================
   const canAnyHorseMove = useCallback((currentGameState, diceValue) => {
     if (!currentGameState || !diceValue) {
       return false;
@@ -192,12 +189,10 @@ const GamePlay = () => {
       prevCurrentTurnRef.current = response.data?.current_turn;
       prevDiceRef.current = response.data?.dice;
 
-      // Chỉ cập nhật remaining_time từ API khi turn thay đổi
       if (turnChanged) {
         timeRemainingRef.current = Number(response.data?.remaining_time) || 0;
         setGameState(response.data);
       } else {
-        // Giữ nguyên remaining_time local, chỉ cập nhật các field khác
         setGameState(prev => ({
           ...response.data,
           remaining_time: prev?.remaining_time ?? response.data?.remaining_time
@@ -214,9 +209,6 @@ const GamePlay = () => {
     }
   }, [gameId, myLogin, navigate, canClickHorse]);
 
-  // ============================================
-  // Gọi API pass turn
-  // ============================================
   const callPassTurn = useCallback(async () => {
     if (isAutoPassingRef.current) return;
     isAutoPassingRef.current = true;
@@ -231,9 +223,6 @@ const GamePlay = () => {
     }
   }, [gameId, fetchGameState]);
 
-  // ============================================
-  // Callback khi animation dice kết thúc
-  // ============================================
   const handleDiceAnimationEnd = useCallback(() => {
     setIsRollingDice(false);
     
@@ -241,7 +230,6 @@ const GamePlay = () => {
       clearTimeout(autoPassTimeoutRef.current);
     }
 
-    // Đợi 1.5s sau khi dice dừng để người chơi nhìn thấy kết quả
     autoPassTimeoutRef.current = setTimeout(() => {
       const currentState = gameStateRef.current;
       if (!currentState) {
@@ -254,10 +242,9 @@ const GamePlay = () => {
       if (canMove) {
         setCanClickHorse(true);
       } else {
-        // Đợi thêm 2s trước khi pass turn để người chơi nhìn thấy
         setTimeout(() => {
           callPassTurn();
-        }, 2000);
+        }, 2500);
       }
     }, 1000);
   }, [canAnyHorseMove, callPassTurn]);

@@ -20,7 +20,6 @@ const DiceAnimation = ({ number, isRolling, onAnimationEnd }) => {
 
   useEffect(() => {
     if (isRolling) {
-      // Reset flag khi bắt đầu roll mới
       hasCalledEndRef.current = false;
       setIsAnimating(true);
 
@@ -36,14 +35,11 @@ const DiceAnimation = ({ number, isRolling, onAnimationEnd }) => {
           setDisplayNumber(randomNum);
           animationRef.current = setTimeout(animate, rollInterval);
         } else {
-          // Dừng ở số cuối cùng
           setDisplayNumber(number);
           setIsAnimating(false);
           
-          // Gọi onAnimationEnd chỉ 1 lần
           if (onAnimationEnd && !hasCalledEndRef.current) {
             hasCalledEndRef.current = true;
-            console.log('[DiceAnimation] Animation ended, calling onAnimationEnd');
             onAnimationEnd();
           }
         }
